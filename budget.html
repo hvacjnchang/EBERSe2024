@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>空調系統達成近零碳改造預算概估</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #e9ecef;
+        }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        .bg-light { background-color: #f8f9fa; }
+        
+        input[type="number"] {
+            width: 80px;
+            padding: 4px;
+            text-align: right;
+        }
+        input[type="checkbox"] {
+            transform: scale(1.2);
+            margin: 5px;
+        }
+        select {
+            padding: 5px;
+            font-size: 14px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #b3e5fc;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .main-selector {
+            background: #ffe0b2;
+            border: 1px solid #ffcc80;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .action-btns {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 8px 15px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-blue { background-color: #0275d8; }
+        .btn-blue:hover { background-color: #025aa5; }
+        .btn-green { background-color: #28a745; }
+        .btn-green:hover { background-color: #218838; }
+        .btn-orange { background-color: #fd7e14; }
+        .btn-orange:hover { background-color: #e86e04; }
+        .btn-dark { background-color: #343a40; }
+        .btn-dark:hover { background-color: #23272b; }
+        .btn-purple { background-color: #6f42c1; }
+        .btn-purple:hover { background-color: #59339d; }
+
+        .ref-section {
+            margin-top: 40px;
+            border-top: 2px dashed #ccc;
+            padding-top: 20px;
+        }
+
+        /* 預覽模式樣式 */
+        body.preview-mode {
+            background-color: #fff;
+        }
+        body.preview-mode .controls, 
+        body.preview-mode .ref-section {
+            display: none !important;
+        }
+        body.preview-mode input[type="number"] {
+            border: none;
+            background: transparent;
+            font-weight: bold;
+            -moz-appearance: textfield;
+            width: auto;
+        }
+        body.preview-mode input[type="number"]::-webkit-outer-spin-button,
+        body.preview-mode input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        body.preview-mode select {
+            border: none;
+            background: transparent;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            pointer-events: none;
+            font-weight: bold;
+        }
+        body.preview-mode input[type="checkbox"] {
+            pointer-events: none;
+        }
+
+        /* 列印專用樣式 */
+        @media print {
+            body { background-color: #fff; padding: 0; }
+            .container { box-shadow: none; max-width: 100%; padding: 0; }
+            .controls, .action-btns, .ref-section { display: none !important; }
+            input[type="number"] { border: none; font-weight: bold; width: auto; }
+            select { border: none; appearance: none; pointer-events: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 id="main_title">空調系統達成近零碳改造(EAC ≦ 0.5)之預算概估表</h1>
+    
+    <div class="action-btns">
+        <input type="file" id="fileImport" style="display:none" accept=".json" onchange="importData(event)">
+        <button class="btn btn-purple" onclick="document.getElementById('fileImport').click()">匯入</button>
+        <button class="btn btn-orange" onclick="exportData()">匯出</button>
+        <button id="btn-preview" class="btn btn-dark" onclick="togglePreview()">預覽</button>
+        <button class="btn btn-blue" onclick="window.print()">列印</button>
+    </div>
+
+    <!-- 主系統選擇器 -->
+    <div class="controls main-selector">
+        <label style="font-size: 18px;"><strong>請選擇欲評估之空調系統：</strong></label>
+        <select id="mainSystem" onchange="switchMainSystem()" style="font-size: 18px; padding: 5px 10px; font-weight: bold;">
+            <option value="vrf">VRF 空調系統</option>
+            <option value="chiller">冰水主機空調系統</option>
+        </select>
+    </div>
+
+    <!-- ==================== VRF 系統區塊 ==================== -->
+    <div id="section_vrf">
+        <div class="controls">
+            <div>
+                <label><strong>1. 選擇建築類別：</strong></label>
+                <select id="buildType" onchange="updateSystem_vrf()">
+                    <option value="office">辦公文教類 (ACD: 22.2)</option>
+                    <option value="dept">百貨商場類 (ACD: 15.5)</option>
+                    <option value="hotel">旅館類 (ACD: 18.4)</option>
+                </select>
+                
+                <label style="margin-left: 15px;"><strong>2. 選擇系統型式：</strong></label>
+                <select id="sysType" onchange="updateSystem_vrf()">
+                    <option value="air">氣冷式 VRF 空調系統</option>
+                    <option value="water">水冷式 VRF 空調系統</option>
+                </select>
+            </div>
+            <div>
+                <strong>快速帶入參考單價：</strong>
+                <button class="btn btn-green" onclick="autoFill_vrf('basic')">基本款</button>
+                <button class="btn btn-green" onclick="autoFill_vrf('mid')">中階款</button>
+                <button class="btn btn-green" onclick="autoFill_vrf('high')">高階款</button>
+            </div>
+        </div>
+
+        <table>
+            <tr>
+                <th colspan="12" class="text-left" style="font-size: 16px;">
+                    建築類別與可補助空調容量密度 ACD: 
+                    <span id="display_acd_text" style="color:blue; font-weight:bold;">辦公文教(22.2m²/USRT)</span>
+                </th>
+            </tr>
+            <tr>
+                <td colspan="12" class="text-left">
+                    本案空調供應總面積 AFc = <input type="number" id="afc" value="1000" style="width: 100px;" oninput="calc_vrf()"> m² ，
+                    可補助空調容量預估 AC = <strong id="ac_result" style="color:red;">45.05</strong> USRT
+                    <br><small>(註：表單依單位 m²/USRT 邏輯，採除法計算 AC = AFc / ACD)</small>
+                </td>
+            </tr>
+            
+            <tr class="bg-light">
+                <th rowspan="3" style="width: 50px;">空調<br>基本<br>設備<br>成本<br>估算</th>
+                <th colspan="2">空調基本設備項目</th>
+                <th>3級主機 (Y1)</th>
+                <th>2級主機 (Y2)</th>
+                <th>1級主機 (Y3)</th>
+                <th colspan="2">變頻主機(Y4) (輸入%)</th>
+                <th colspan="2">高效率送風系統(Y5)</th>
+                <th>高效率水泵系統(Y6)</th>
+                <th rowspan="3" style="vertical-align: bottom;">更新後基本設備<br>單價合計<br>A=ΣYi = <br><strong id="sumA" style="color:red; font-size: 18px;">0</strong></th>
+            </tr>
+            <tr>
+                <td colspan="2">勾選採用項目</td>
+                <td><input type="checkbox" id="chk_y1" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_y2" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_y3" onchange="calc_vrf()"></td>
+                <td colspan="2"><input type="checkbox" id="chk_y4" onchange="calc_vrf()"> 比例:<input type="number" id="y4_pct" value="100" style="width:50px" oninput="calc_vrf()">%</td>
+                <td colspan="2"><input type="checkbox" id="chk_y5" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_y6" onchange="calc_vrf()"></td>
+            </tr>
+            <tr>
+                <td colspan="2">單價成本(元/RT)</td>
+                <td><input type="number" id="val_y1" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_y2" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_y3" value="0" oninput="calc_vrf()"></td>
+                <td colspan="2"><input type="number" id="val_y4" value="0" oninput="calc_vrf()"></td>
+                <td colspan="2"><input type="number" id="val_y5" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_y6" value="0" oninput="calc_vrf()"></td>
+            </tr>
+
+            <tr class="bg-light">
+                <th rowspan="3">空調<br>節能<br>技術<br>設備<br>成本<br>估算</th>
+                <th colspan="2">空調節能技術項目</th>
+                <th>變風量<br>Z1</th>
+                <th>全熱交換<br>Z2</th>
+                <th>CO2控制<br>Z3</th>
+                <th>外氣冷房<br>Z4</th>
+                <th>冷卻水VWV<br>Z5</th>
+                <th>冷卻散熱<br>Z6</th>
+                <th colspan="2">BEMS<br>Z8</th>
+                <th rowspan="3" style="vertical-align: bottom;">空調節能技術<br>單價合計<br>B=ΣZi = <br><strong id="sumB" style="color:red; font-size: 18px;">0</strong></th>
+            </tr>
+            <tr>
+                <td colspan="2">勾選/選擇項目</td>
+                <td><input type="checkbox" id="chk_z1" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_z2" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_z3" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_z4" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_z5" onchange="calc_vrf()"></td>
+                <td><input type="checkbox" id="chk_z6" onchange="calc_vrf()"></td>
+                <td colspan="2">
+                    <input type="checkbox" id="chk_z8" onchange="calc_vrf()">
+                    <select id="sel_z8" onchange="z8Change_vrf(); calc_vrf()">
+                        <option value="C">C級</option>
+                        <option value="B">B級</option>
+                        <option value="A">A級</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">單價成本(元/RT)</td>
+                <td><input type="number" id="val_z1" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_z2" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_z3" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_z4" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_z5" value="0" oninput="calc_vrf()"></td>
+                <td><input type="number" id="val_z6" value="0" oninput="calc_vrf()"></td>
+                <td colspan="2"><input type="number" id="val_z8" value="0" oninput="calc_vrf()"></td>
+            </tr>
+
+            <tr>
+                <th colspan="8" class="text-right">近零碳空調改造總工程單價(元/RT)合計 C = A + B = </th>
+                <td colspan="4" class="text-left"><strong id="totalC" style="font-size: 18px;">0</strong></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">近零碳空調改造(TAB與Cx除外)工程預算概估 D(元) = 總單價 C × 容量 AC = </th>
+                <td colspan="4" class="text-left"><strong id="totalD" style="font-size: 18px;">0</strong></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">近零碳空調改造(含 TAB 2% 與 Cx 1%)總預算概估 TB(元) = 1.03 × D = </th>
+                <td colspan="4" class="text-left"><strong id="totalTB" style="font-size: 18px; color: blue;">0</strong></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">本案拆除廢棄等額外費用 TB' (單位:元，無則填0) = </th>
+                <td colspan="4" class="text-left"><input type="number" id="val_tb_prime" value="0" style="width: 150px;" oninput="calc_vrf()"></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">本案計入額外費用之近零碳改造總預算概估 TTB(元) = TB + TB' = </th>
+                <td colspan="4" class="text-left"><strong id="totalTTB" style="font-size: 20px; color: red;">0</strong></td>
+            </tr>
+        </table>
+
+        <div class="ref-section">
+            <h2>對應單價參考表 (<span id="ref_title_type">辦公類建築 氣冷式 VRF</span>)</h2>
+            <h3>空調基本設備成本單價(元/USRT)</h3>
+            <table>
+                <tr>
+                    <th rowspan="2">效率等級</th>
+                    <th colspan="3">高效率主機</th>
+                    <th rowspan="2">高效率送風系統</th>
+                    <th rowspan="2">高效率水泵系統</th>
+                    <th rowspan="2">C級 BEMS</th>
+                </tr>
+                <tr><th>3級</th><th>2級</th><th>1級</th></tr>
+                <tr>
+                    <td>基本款</td>
+                    <td id="td_y1_b">-</td><td>-</td><td>-</td>
+                    <td id="td_y5_b">-</td><td id="td_y6_b">-</td><td id="td_z8_c">-</td>
+                </tr>
+                <tr>
+                    <td>中階款</td>
+                    <td>-</td><td id="td_y2_m">-</td><td id="td_y3_m">-</td>
+                    <td id="td_y5_m">-</td><td id="td_y6_m">-</td><td>-</td>
+                </tr>
+                <tr>
+                    <td>高階款</td>
+                    <td>-</td><td>-</td><td id="td_y3_h">-</td>
+                    <td id="td_y5_h">-</td><td id="td_y6_h">-</td><td>-</td>
+                </tr>
+            </table>
+
+            <h3>空調節能控制技術設備成本單價(元/USRT)</h3>
+            <table>
+                <tr>
+                    <th>等級</th>
+                    <th>變風量(Z1)</th><th>全熱交換(Z2)</th><th>CO2控制(Z3)</th>
+                    <th>外氣冷房(Z4)</th><th>冷卻水VWV(Z5)</th><th>冷卻散熱(Z6)</th>
+                    <th>B級 BEMS(Z8)</th><th>A級 BEMS(Z8)</th>
+                </tr>
+                <tr>
+                    <td>中階款</td>
+                    <td id="td_z1_m">-</td><td id="td_z2_m">-</td><td id="td_z3_m">-</td>
+                    <td id="td_z4_m">-</td><td id="td_z5_m">-</td><td id="td_z6_m">-</td>
+                    <td id="td_z8_b">-</td><td>-</td>
+                </tr>
+                <tr>
+                    <td>高階款</td>
+                    <td id="td_z1_h">-</td><td id="td_z2_h">-</td><td id="td_z3_h">-</td>
+                    <td id="td_z4_h">-</td><td id="td_z5_h">-</td><td id="td_z6_h">-</td>
+                    <td>-</td><td id="td_z8_a">-</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== 冰水主機系統區塊 ==================== -->
+    <div id="section_chiller" style="display:none;">
+        <div class="controls">
+            <div>
+                <label><strong>1. 選擇建築類別：</strong></label>
+                <select id="c_buildType" onchange="updateSystem_chiller()">
+                    <option value="office">辦公文教類 (ACD: 22.2)</option>
+                    <option value="dept">百貨商場類 (ACD: 15.5)</option>
+                    <option value="hotel">旅館類 (ACD: 18.4)</option>
+                    <option value="hospital">醫療類 (ACD: 15.5)</option>
+                </select>
+                
+                <label style="margin-left: 15px;"><strong>2. 選擇系統型式：</strong></label>
+                <select id="c_sysType" onchange="updateSystem_chiller()">
+                    <option value="FCU">FCU 冰水主機空調系統</option>
+                    <option value="AHU">AHU 冰水主機空調系統</option>
+                </select>
+            </div>
+            <div>
+                <strong>快速帶入參考單價：</strong>
+                <button class="btn btn-green" onclick="autoFill_chiller('basic')">基本款</button>
+                <button class="btn btn-green" onclick="autoFill_chiller('mid')">中階款</button>
+                <button class="btn btn-green" onclick="autoFill_chiller('high')">高階款</button>
+            </div>
+        </div>
+
+        <table>
+            <tr>
+                <th colspan="12" class="text-left" style="font-size: 16px;">
+                    建築類別與可補助空調容量密度 ACD: 
+                    <span id="c_display_acd_text" style="color:blue; font-weight:bold;">辦公文教(22.2m²/USRT)</span>
+                </th>
+            </tr>
+            <tr>
+                <td colspan="12" class="text-left">
+                    本案空調供應總面積 AFc = <input type="number" id="c_afc" value="1000" style="width: 100px;" oninput="calc_chiller()"> m² ，
+                    可補助空調容量預估 AC = <strong id="c_ac_result" style="color:red;">45.05</strong> USRT
+                </td>
+            </tr>
+            
+            <tr class="bg-light">
+                <th rowspan="3" style="width: 50px;">空調<br>基本<br>設備<br>成本<br>估算</th>
+                <th colspan="2">空調基本設備項目</th>
+                <th>3級主機 (Y1)</th>
+                <th>2級主機 (Y2)</th>
+                <th>1級主機 (Y3)</th>
+                <th colspan="2">變頻主機(Y4) (輸入%)</th>
+                <th colspan="2">高效率送風系統(Y5)</th>
+                <th>高效率水泵系統(Y6)</th>
+                <th rowspan="3" style="vertical-align: bottom;">更新後基本設備<br>單價合計<br>A=ΣYi = <br><strong id="c_sumA" style="color:red; font-size: 18px;">0</strong></th>
+            </tr>
+            <tr>
+                <td colspan="2">勾選採用項目</td>
+                <td><input type="checkbox" id="c_chk_y1" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_y2" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_y3" onchange="calc_chiller()"></td>
+                <td colspan="2"><input type="checkbox" id="c_chk_y4" onchange="calc_chiller()"> 比例:<input type="number" id="c_y4_pct" value="100" style="width:50px" oninput="calc_chiller()">%</td>
+                <td colspan="2"><input type="checkbox" id="c_chk_y5" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_y6" onchange="calc_chiller()"></td>
+            </tr>
+            <tr>
+                <td colspan="2">單價成本(元/RT)</td>
+                <td><input type="number" id="c_val_y1" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_y2" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_y3" value="0" oninput="calc_chiller()"></td>
+                <td colspan="2"><input type="number" id="c_val_y4" value="0" oninput="calc_chiller()"></td>
+                <td colspan="2"><input type="number" id="c_val_y5" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_y6" value="0" oninput="calc_chiller()"></td>
+            </tr>
+
+            <tr class="bg-light">
+                <th rowspan="3">空調<br>節能<br>技術<br>設備<br>成本<br>估算</th>
+                <th colspan="2">空調節能技術項目</th>
+                <th>變風量<br>Z1</th>
+                <th>冰水VWV<br>Z2</th>
+                <th>全熱交換器<br>Z3</th>
+                <th>CO2控制<br>Z4</th>
+                <th>外氣冷房<br>Z5</th>
+                <th>冷卻水VWV<br>Z6</th>
+                <th>冷卻散熱<br>Z7</th>
+                <th>BEMS<br>Z8</th>
+                <th rowspan="3" style="vertical-align: bottom;">空調節能技術<br>單價合計<br>B=ΣZi = <br><strong id="c_sumB" style="color:red; font-size: 18px;">0</strong></th>
+            </tr>
+            <tr>
+                <td colspan="2">勾選/選擇項目</td>
+                <td><input type="checkbox" id="c_chk_z1" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_z2" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_z3" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_z4" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_z5" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_z6" onchange="calc_chiller()"></td>
+                <td><input type="checkbox" id="c_chk_z7" onchange="calc_chiller()"></td>
+                <td>
+                    <input type="checkbox" id="c_chk_z8" onchange="calc_chiller()">
+                    <select id="c_sel_z8" onchange="z8Change_chiller(); calc_chiller()">
+                        <option value="C">C級</option>
+                        <option value="B">B級</option>
+                        <option value="A">A級</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">單價成本(元/RT)</td>
+                <td><input type="number" id="c_val_z1" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z2" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z3" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z4" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z5" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z6" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z7" value="0" oninput="calc_chiller()"></td>
+                <td><input type="number" id="c_val_z8" value="0" oninput="calc_chiller()"></td>
+            </tr>
+            <tr>
+                <th></th>
+                <th colspan="2">空調儲冰系統 Z9</th>
+                <td><input type="checkbox" id="c_chk_z9" onchange="calc_chiller()"></td>
+                <td colspan="7"><input type="number" id="c_val_z9" value="0" oninput="calc_chiller()"></td>
+                <td>(包含於上方B加總)</td>
+            </tr>
+
+            <tr>
+                <th colspan="8" class="text-right">近零碳空調改造總工程單價(元/RT)合計 C = A + B = </th>
+                <td colspan="4" class="text-left"><strong id="c_totalC" style="font-size: 18px;">0</strong></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">近零碳空調改造(TAB與Cx除外)工程預算概估 D(元) = 總單價 C × 容量 AC = </th>
+                <td colspan="4" class="text-left"><strong id="c_totalD" style="font-size: 18px;">0</strong></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">近零碳空調改造(含TAB與Cx)總預算概估 TB(元) = 1.03 × D = </th>
+                <td colspan="4" class="text-left"><strong id="c_totalTB" style="font-size: 18px; color: blue;">0</strong></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">本案拆除廢棄等額外費用 TB' (單位:元，無則填0) = </th>
+                <td colspan="4" class="text-left"><input type="number" id="c_val_tb_prime" value="0" style="width: 150px;" oninput="calc_chiller()"></td>
+            </tr>
+            <tr>
+                <th colspan="8" class="text-right">本案計入額外費用之近零碳改造總預算概估 TTB(元) = TB + TB' = </th>
+                <td colspan="4" class="text-left"><strong id="c_totalTTB" style="font-size: 20px; color: red;">0</strong></td>
+            </tr>
+        </table>
+
+        <div class="ref-section">
+            <h2>對應單價參考表 (<span id="c_ref_title_type">辦公類建築 FCU</span>)</h2>
+            <h3>空調基本設備成本單價(元/USRT)</h3>
+            <table>
+                <tr>
+                    <th rowspan="2">效率等級</th>
+                    <th colspan="3">高效率主機</th>
+                    <th rowspan="2">100%變頻主機</th>
+                    <th rowspan="2">高效率送風系統</th>
+                    <th rowspan="2">高效率水泵系統</th>
+                    <th rowspan="2">C級 BEMS</th>
+                </tr>
+                <tr><th>3級</th><th>2級</th><th>1級</th></tr>
+                <tr>
+                    <td>基本款</td>
+                    <td id="c_td_y1_b">-</td><td>-</td><td>-</td><td>-</td>
+                    <td id="c_td_y5_b">-</td><td id="c_td_y6_b">-</td><td id="c_td_z8_c">-</td>
+                </tr>
+                <tr>
+                    <td>中階款</td>
+                    <td>-</td><td id="c_td_y2_m">-</td><td id="c_td_y3_m">-</td><td id="c_td_y4_m">-</td>
+                    <td id="c_td_y5_m">-</td><td id="c_td_y6_m">-</td><td>-</td>
+                </tr>
+                <tr>
+                    <td>高階款</td>
+                    <td>-</td><td>-</td><td id="c_td_y3_h">-</td><td id="c_td_y4_h">-</td>
+                    <td id="c_td_y5_h">-</td><td id="c_td_y6_h">-</td><td>-</td>
+                </tr>
+            </table>
+
+            <h3>空調節能控制技術設備成本單價(元/USRT)</h3>
+            <table>
+                <tr>
+                    <th>等級</th>
+                    <th>變風量(Z1)</th><th>冰水VWV(Z2)</th><th>全熱交換(Z3)</th>
+                    <th>CO2控制(Z4)</th><th>外氣冷房(Z5)</th><th>冷卻水VWV(Z6)</th>
+                    <th>冷卻散熱(Z7)</th><th>B級 BEMS(Z8)</th><th>A級 BEMS(Z8)</th><th>空調儲冰(Z9)</th>
+                </tr>
+                <tr>
+                    <td>中階款</td>
+                    <td id="c_td_z1_m">-</td><td id="c_td_z2_m">-</td><td id="c_td_z3_m">-</td>
+                    <td id="c_td_z4_m">-</td><td id="c_td_z5_m">-</td><td id="c_td_z6_m">-</td>
+                    <td id="c_td_z7_m">-</td><td id="c_td_z8_b">-</td><td>-</td><td id="c_td_z9_m">-</td>
+                </tr>
+                <tr>
+                    <td>高階款</td>
+                    <td id="c_td_z1_h">-</td><td id="c_td_z2_h">-</td><td id="c_td_z3_h">-</td>
+                    <td id="c_td_z4_h">-</td><td id="c_td_z5_h">-</td><td id="c_td_z6_h">-</td>
+                    <td id="c_td_z7_h">-</td><td>-</td><td id="c_td_z8_a">-</td><td id="c_td_z9_h">-</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 資料庫定義 ====================
+const db_vrf = {
+    office: {
+        name: '辦公文教類', acd: 22.2,
+        air: {
+            basic: { y1: 37846, y5: 22907, z8_c: 0 },
+            mid:   { y2: 43300, y3: 45075, y5: 26773, z1: 2881, z2: 5215, z3: 1034, z4: 4056, z8_b: 4875 },
+            high:  { y3: 47750, y5: 23778, z1: 2881, z2: 7908, z3: 1034, z4: 4056, z8_a: 10000 }
+        },
+        water: {
+            basic: { y1: 45833, y5: 14043, y6: 19575, z8_c: 0 },
+            mid:   { y2: 47000, y3: 48900, y5: 14543, y6: 20359, z2: 3643, z3: 1042, z5: 838, z6: 190, z8_b: 3407 },
+            high:  { y3: 50271, y5: 15250, y6: 21725, z1: 5010, z2: 4384, z3: 1042, z5: 838, z6: 383, z8_a: 6083 }
+        }
+    },
+    dept: {
+        name: '百貨商場類', acd: 15.5,
+        air: {
+            basic: { y1: 41017, y5: 28000, z8_c: 0 },
+            mid:   { y2: 42061, y3: 43786, y5: 28250, z1: 3505, z2: 4171, z3: 1089, z8_b: 3840 },
+            high:  { y3: 47625, y5: 28375, z1: 3505, z2: 4625, z3: 1089, z4: 4561, z8_a: 16900 }
+        },
+        water: {
+            basic: { y1: 48667, y5: 18250, y6: 16900, z8_c: 0 },
+            mid:   { y2: 48783, y3: 48900, y5: 19000, y6: 18533, z1: 13209, z2: 4640, z3: 885, z5: 838, z6: 199, z8_b: 4813 },
+            high:  { y3: 52000, y5: 19500, y6: 19233, z1: 13209, z2: 4875, z3: 885, z5: 838, z6: 345, z8_a: 9917 }
+        }
+    },
+    hotel: {
+        name: '旅館類', acd: 18.4,
+        air: {
+            basic: { y1: 41200, y5: 24250, z8_c: 0 },
+            mid:   { y2: 42000, y3: 44983, y5: 24667, z1: 3755, z2: 3957, z3: 1007, z4: 4561, z8_b: 3840 },
+            high:  { y3: 48167, y5: 31920, z1: 3755, z2: 4382, z3: 1089, z4: 4561, z8_a: 16900 }
+        },
+        water: {
+            basic: { y1: 45667, y5: 13500, y6: 16000, z8_c: 0 },
+            mid:   { y2: 45667, y3: 48900, y5: 14000, y6: 17705, z2: 4101, z3: 885, z5: 838, z6: 199, z8_b: 9417 },
+            high:  { y3: 52000, y5: 14500, y6: 18175, z2: 4780, z3: 885, z5: 838, z6: 345, z8_a: 9917 }
+        }
+    }
+};
+
+const db_chiller = {
+    office: {
+        name: '辦公文教', acd: 22.2,
+        FCU: {
+            basic: { y1: 16150, y5: 17826, y6: 23142, z8_c: 6983 },
+            mid:   { y2: 17463, y3: 17752, y4: 6553, y5: 19320, y6: 24618, z1: 1791, z2: 1442, z3: 3063, z4: 1290, z5: 3264, z6: 1078, z7: 288, z8_b: 8848, z9: 18606 },
+            high:  { y3: 19829, y4: 6553, y5: 19758, y6: 27539, z1: 1791, z2: 1249, z3: 4276, z4: 1290, z5: 3264, z6: 1078, z7: 615, z8_a: 11288, z9: 27699 }
+        },
+        AHU: {
+            basic: { y1: 15956, y5: 30082, y6: 20266, z8_c: 8556 },
+            mid:   { y2: 17637, y3: 18265, y4: 6826, y5: 32371, y6: 21779, z1: 4442, z2: 1317, z3: 3828, z4: 1122, z5: 1970, z6: 906, z7: 246, z8_b: 9759, z9: 17423 },
+            high:  { y3: 19231, y4: 6826, y5: 34427, y6: 23444, z1: 4442, z2: 1043, z3: 5344, z4: 1122, z5: 1970, z6: 906, z7: 344, z8_a: 11316, z9: 20963 }
+        }
+    },
+    dept: {
+        name: '百貨商場', acd: 15.5,
+        FCU: {
+            basic: { y1: 16135, y5: 20619, y6: 26511, z8_c: 7696 },
+            mid:   { y2: 17775, y3: 19846, y4: 6256, y5: 21652, y6: 27654, z1: 1724, z2: 1505, z3: 3975, z4: 1235, z5: 3556, z6: 894, z7: 224, z8_b: 8445, z9: 14535 },
+            high:  { y3: 20795, y4: 6256, y5: 22538, y6: 29232, z1: 1724, z2: 1051, z3: 4770, z4: 1235, z5: 3556, z6: 894, z7: 411, z8_a: 10635, z9: 21136 }
+        },
+        AHU: {
+            basic: { y1: 16188, y5: 36019, y6: 22179, z8_c: 8293 },
+            mid:   { y2: 17582, y3: 18776, y4: 6256, y5: 37704, y6: 25139, z1: 3972, z2: 1453, z3: 3817, z4: 1089, z5: 2263, z6: 894, z7: 265, z8_b: 9693, z9: 14268 },
+            high:  { y3: 20795, y4: 6256, y5: 43843, y6: 29232, z1: 3972, z2: 1051, z3: 4770, z4: 1089, z5: 2263, z6: 894, z7: 411, z8_a: 10635, z9: 26614 }
+        }
+    },
+    hotel: {
+        name: '旅館類', acd: 18.4,
+        FCU: {
+            basic: { y1: 16313, y5: 20593, y6: 30827, z8_c: 7520 },
+            mid:   { y2: 18044, y3: 18769, y4: 6256, y5: 23147, y6: 31897, z1: 1798, z2: 1525, z3: 4938, z4: 1244, z5: 2118, z6: 1039, z7: 208, z8_b: 9122, z9: 14580 },
+            high:  { y3: 20965, y4: 6256, y5: 22353, y6: 32602, z1: 1798, z2: 993, z3: 5912, z4: 1244, z5: 2118, z6: 1039, z7: 364, z8_a: 11175, z9: 21211 }
+        },
+        AHU: {
+            basic: { y1: 16225, y5: 36546, y6: 24561, z8_c: 8520 },
+            mid:   { y2: 17898, y3: 18526, y4: 6256, y5: 41053, y6: 26107, z1: 4569, z2: 1399, z3: 4861, z4: 1094, z5: 2680, z6: 1082, z7: 245, z8_b: 9581, z9: 14280 },
+            high:  { y3: 20695, y4: 6256, y5: 42367, y6: 25941, z1: 4569, z2: 995, z3: 6301, z4: 1094, z5: 2680, z6: 1082, z7: 290, z8_a: 12442, z9: 20845 }
+        }
+    },
+    hospital: {
+        name: '醫療類', acd: 15.5,
+        FCU: {
+            basic: { y1: 16059, y5: 28743, y6: 30320, z8_c: 9754 },
+            mid:   { y2: 18335, y3: 19183, y4: 5589, y5: 30323, y6: 32999, z1: 2291, z2: 1495, z3: 4202, z4: 1201, z5: 2226, z6: 1276, z7: 231, z8_b: 11047, z9: 16591 },
+            high:  { y3: 20708, y4: 5589, y5: 31685, y6: 33844, z1: 2291, z2: 1179, z3: 5217, z4: 1201, z5: 2226, z6: 1276, z7: 437, z8_a: 10825, z9: 25168 }
+        },
+        AHU: {
+            basic: { y1: 16548, y5: 38675, y6: 26454, z8_c: 9600 },
+            mid:   { y2: 18076, y3: 18911, y4: 5589, y5: 41324, y6: 27411, z1: 4150, z2: 1593, z3: 3565, z4: 1114, z5: 2410, z6: 1251, z7: 357, z8_b: 11081, z9: 19008 },
+            high:  { y3: 20415, y4: 5589, y5: 44839, y6: 26627, z1: 4150, z2: 1387, z3: 5095, z4: 1114, z5: 2410, z6: 1251, z7: 688, z8_a: 11984, z9: 30356 }
+        }
+    }
+};
+
+// ==================== 狀態變數 ====================
+let currentLevelData_vrf = { b: {}, m: {}, h: {} };
+let currentLevelData_chiller = { b: {}, m: {}, h: {} };
+
+// ==================== 主系統切換 ====================
+function switchMainSystem() {
+    const sys = document.getElementById('mainSystem').value;
+    if (sys === 'vrf') {
+        document.getElementById('main_title').innerText = 'VRF空調系統達成近零碳改造(EAC ≦ 0.5)之預算概估表';
+        document.getElementById('section_vrf').style.display = 'block';
+        document.getElementById('section_chiller').style.display = 'none';
+        updateSystem_vrf();
+    } else {
+        document.getElementById('main_title').innerText = '冰水主機空調系統達成近零碳改造(EAC ≦ 0.5)之預算概估表';
+        document.getElementById('section_vrf').style.display = 'none';
+        document.getElementById('section_chiller').style.display = 'block';
+        updateSystem_chiller();
+    }
+}
+
+// ==================== VRF 邏輯 ====================
+function updateSystem_vrf() {
+    const bType = document.getElementById('buildType').value;
+    const sType = document.getElementById('sysType').value;
+    const building = db_vrf[bType];
+    const acd = building.acd;
+    const currentData = building[sType];
+    currentLevelData_vrf.b = currentData.basic || {};
+    currentLevelData_vrf.m = currentData.mid || {};
+    currentLevelData_vrf.h = currentData.high || {};
+
+    document.getElementById('display_acd_text').innerText = `${building.name}(${acd}m²/USRT)`;
+    document.getElementById('ref_title_type').innerText = `${building.name} ${sType === 'air' ? '氣冷式 VRF' : '水冷式 VRF'}`;
+
+    document.getElementById('td_y1_b').innerText = currentLevelData_vrf.b.y1 || '-';
+    document.getElementById('td_y5_b').innerText = currentLevelData_vrf.b.y5 || '-';
+    document.getElementById('td_y6_b').innerText = currentLevelData_vrf.b.y6 || '-';
+    document.getElementById('td_z8_c').innerText = currentLevelData_vrf.b.z8_c !== undefined ? currentLevelData_vrf.b.z8_c : '-';
+
+    document.getElementById('td_y2_m').innerText = currentLevelData_vrf.m.y2 || '-';
+    document.getElementById('td_y3_m').innerText = currentLevelData_vrf.m.y3 || '-';
+    document.getElementById('td_y5_m').innerText = currentLevelData_vrf.m.y5 || '-';
+    document.getElementById('td_y6_m').innerText = currentLevelData_vrf.m.y6 || '-';['z1','z2','z3','z4','z5','z6'].forEach(z => {
+        document.getElementById(`td_${z}_m`).innerText = currentLevelData_vrf.m[z] || '-';
+        document.getElementById(`td_${z}_h`).innerText = currentLevelData_vrf.h[z] || '-';
+    });
+    document.getElementById('td_z8_b').innerText = currentLevelData_vrf.m.z8_b || '-';
+
+    document.getElementById('td_y3_h').innerText = currentLevelData_vrf.h.y3 || '-';
+    document.getElementById('td_y5_h').innerText = currentLevelData_vrf.h.y5 || '-';
+    document.getElementById('td_y6_h').innerText = currentLevelData_vrf.h.y6 || '-';
+    document.getElementById('td_z8_a').innerText = currentLevelData_vrf.h.z8_a || '-';
+
+    calc_vrf();
+}
+
+function setItem_vrf(id, checkState, val) {
+    const chk = document.getElementById(`chk_${id}`);
+    if (chk) {
+        chk.checked = checkState;
+        if (val !== undefined && document.getElementById(`val_${id}`)) {
+            document.getElementById(`val_${id}`).value = val || 0;
+        }
+    }
+}
+
+function z8Change_vrf() {
+    const level = document.getElementById('sel_z8').value;
+    let val = 0;
+    if(level === 'C') val = currentLevelData_vrf.b.z8_c || 0;
+    if(level === 'B') val = currentLevelData_vrf.m.z8_b || 0;
+    if(level === 'A') val = currentLevelData_vrf.h.z8_a || 0;
+    document.getElementById('val_z8').value = val;
+}
+
+function autoFill_vrf(level) {['y1','y2','y3','y4','y5','y6','z1','z2','z3','z4','z5','z6','z8'].forEach(id => setItem_vrf(id, false, 0));
+
+    if (level === 'basic') {
+        setItem_vrf('y1', true, currentLevelData_vrf.b.y1);
+        setItem_vrf('y5', true, currentLevelData_vrf.b.y5);
+        if(currentLevelData_vrf.b.y6) setItem_vrf('y6', true, currentLevelData_vrf.b.y6);
+        document.getElementById('sel_z8').value = 'C';
+        setItem_vrf('z8', true, currentLevelData_vrf.b.z8_c || 0);
+    } else if (level === 'mid') {
+        setItem_vrf('y2', true, currentLevelData_vrf.m.y2);
+        setItem_vrf('y5', true, currentLevelData_vrf.m.y5);
+        if(currentLevelData_vrf.m.y6) setItem_vrf('y6', true, currentLevelData_vrf.m.y6);
+        ['z1','z2','z3','z4','z5','z6'].forEach(z => { if(currentLevelData_vrf.m[z]) setItem_vrf(z, true, currentLevelData_vrf.m[z]); });
+        document.getElementById('sel_z8').value = 'B';
+        setItem_vrf('z8', true, currentLevelData_vrf.m.z8_b || 0);
+    } else if (level === 'high') {
+        setItem_vrf('y3', true, currentLevelData_vrf.h.y3);
+        setItem_vrf('y5', true, currentLevelData_vrf.h.y5);
+        if(currentLevelData_vrf.h.y6) setItem_vrf('y6', true, currentLevelData_vrf.h.y6);['z1','z2','z3','z4','z5','z6'].forEach(z => { if(currentLevelData_vrf.h[z]) setItem_vrf(z, true, currentLevelData_vrf.h[z]); });
+        document.getElementById('sel_z8').value = 'A';
+        setItem_vrf('z8', true, currentLevelData_vrf.h.z8_a || 0);
+    }
+    calc_vrf();
+}
+
+function calc_vrf() {
+    const acd = db_vrf[document.getElementById('buildType').value].acd;
+    const afc = parseFloat(document.getElementById('afc').value) || 0;
+    const ac = afc / acd;
+    document.getElementById('ac_result').innerText = ac.toFixed(2);
+
+    let sumA = 0;
+    if(document.getElementById('chk_y1').checked) sumA += parseFloat(document.getElementById('val_y1').value) || 0;
+    if(document.getElementById('chk_y2').checked) sumA += parseFloat(document.getElementById('val_y2').value) || 0;
+    if(document.getElementById('chk_y3').checked) sumA += parseFloat(document.getElementById('val_y3').value) || 0;
+    if(document.getElementById('chk_y4').checked) {
+        sumA += (parseFloat(document.getElementById('val_y4').value) || 0) * ((parseFloat(document.getElementById('y4_pct').value) || 0) / 100);
+    }
+    if(document.getElementById('chk_y5').checked) sumA += parseFloat(document.getElementById('val_y5').value) || 0;
+    if(document.getElementById('chk_y6').checked) sumA += parseFloat(document.getElementById('val_y6').value) || 0;
+    document.getElementById('sumA').innerText = Math.round(sumA).toLocaleString();
+
+    let sumB = 0;['z1','z2','z3','z4','z5','z6','z8'].forEach(z => {
+        if(document.getElementById(`chk_${z}`).checked) sumB += parseFloat(document.getElementById(`val_${z}`).value) || 0;
+    });
+    document.getElementById('sumB').innerText = Math.round(sumB).toLocaleString();
+
+    const C = sumA + sumB;
+    document.getElementById('totalC').innerText = Math.round(C).toLocaleString();
+    const D = C * ac;
+    document.getElementById('totalD').innerText = Math.round(D).toLocaleString();
+    const TB = D * 1.03;
+    document.getElementById('totalTB').innerText = Math.round(TB).toLocaleString();
+    const TTB = TB + (parseFloat(document.getElementById('val_tb_prime').value) || 0);
+    document.getElementById('totalTTB').innerText = Math.round(TTB).toLocaleString();
+}
+
+// ==================== 冰水主機邏輯 ====================
+function updateSystem_chiller() {
+    const bType = document.getElementById('c_buildType').value;
+    const sType = document.getElementById('c_sysType').value;
+    const building = db_chiller[bType];
+    const acd = building.acd;
+    const currentData = building[sType];
+    currentLevelData_chiller.b = currentData.basic || {};
+    currentLevelData_chiller.m = currentData.mid || {};
+    currentLevelData_chiller.h = currentData.high || {};
+
+    document.getElementById('c_display_acd_text').innerText = `${building.name}(${acd}m²/USRT)`;
+    document.getElementById('c_ref_title_type').innerText = `${building.name} ${sType}`;
+
+    document.getElementById('c_td_y1_b').innerText = currentLevelData_chiller.b.y1 || '-';
+    document.getElementById('c_td_y5_b').innerText = currentLevelData_chiller.b.y5 || '-';
+    document.getElementById('c_td_y6_b').innerText = currentLevelData_chiller.b.y6 || '-';
+    document.getElementById('c_td_z8_c').innerText = currentLevelData_chiller.b.z8_c || '-';
+
+    document.getElementById('c_td_y2_m').innerText = currentLevelData_chiller.m.y2 || '-';
+    document.getElementById('c_td_y3_m').innerText = currentLevelData_chiller.m.y3 || '-';
+    document.getElementById('c_td_y4_m').innerText = currentLevelData_chiller.m.y4 || '-';
+    document.getElementById('c_td_y5_m').innerText = currentLevelData_chiller.m.y5 || '-';
+    document.getElementById('c_td_y6_m').innerText = currentLevelData_chiller.m.y6 || '-';['z1','z2','z3','z4','z5','z6','z7','z9'].forEach(z => {
+        document.getElementById(`c_td_${z}_m`).innerText = currentLevelData_chiller.m[z] || '-';
+        document.getElementById(`c_td_${z}_h`).innerText = currentLevelData_chiller.h[z] || '-';
+    });
+    document.getElementById('c_td_z8_b').innerText = currentLevelData_chiller.m.z8_b || '-';
+
+    document.getElementById('c_td_y3_h').innerText = currentLevelData_chiller.h.y3 || '-';
+    document.getElementById('c_td_y4_h').innerText = currentLevelData_chiller.h.y4 || '-';
+    document.getElementById('c_td_y5_h').innerText = currentLevelData_chiller.h.y5 || '-';
+    document.getElementById('c_td_y6_h').innerText = currentLevelData_chiller.h.y6 || '-';
+    document.getElementById('c_td_z8_a').innerText = currentLevelData_chiller.h.z8_a || '-';
+
+    calc_chiller();
+}
+
+function setItem_chiller(id, checkState, val) {
+    const chk = document.getElementById(`c_chk_${id}`);
+    if (chk) {
+        chk.checked = checkState;
+        if (val !== undefined && document.getElementById(`c_val_${id}`)) {
+            document.getElementById(`c_val_${id}`).value = val || 0;
+        }
+    }
+}
+
+function z8Change_chiller() {
+    const level = document.getElementById('c_sel_z8').value;
+    let val = 0;
+    if(level === 'C') val = currentLevelData_chiller.b.z8_c || 0;
+    if(level === 'B') val = currentLevelData_chiller.m.z8_b || 0;
+    if(level === 'A') val = currentLevelData_chiller.h.z8_a || 0;
+    document.getElementById('c_val_z8').value = val;
+}
+
+function autoFill_chiller(level) {['y1','y2','y3','y4','y5','y6','z1','z2','z3','z4','z5','z6','z7','z8','z9'].forEach(id => setItem_chiller(id, false, 0));
+
+    if (level === 'basic') {
+        setItem_chiller('y1', true, currentLevelData_chiller.b.y1);
+        setItem_chiller('y5', true, currentLevelData_chiller.b.y5);
+        setItem_chiller('y6', true, currentLevelData_chiller.b.y6);
+        document.getElementById('c_sel_z8').value = 'C';
+        setItem_chiller('z8', true, currentLevelData_chiller.b.z8_c);
+    } else if (level === 'mid') {
+        setItem_chiller('y2', true, currentLevelData_chiller.m.y2);
+        setItem_chiller('y4', true, currentLevelData_chiller.m.y4);
+        setItem_chiller('y5', true, currentLevelData_chiller.m.y5);
+        setItem_chiller('y6', true, currentLevelData_chiller.m.y6);['z1','z2','z3','z4','z5','z6','z7','z9'].forEach(z => setItem_chiller(z, true, currentLevelData_chiller.m[z]));
+        document.getElementById('c_sel_z8').value = 'B';
+        setItem_chiller('z8', true, currentLevelData_chiller.m.z8_b);
+    } else if (level === 'high') {
+        setItem_chiller('y3', true, currentLevelData_chiller.h.y3);
+        setItem_chiller('y4', true, currentLevelData_chiller.h.y4);
+        setItem_chiller('y5', true, currentLevelData_chiller.h.y5);
+        setItem_chiller('y6', true, currentLevelData_chiller.h.y6);['z1','z2','z3','z4','z5','z6','z7','z9'].forEach(z => setItem_chiller(z, true, currentLevelData_chiller.h[z]));
+        document.getElementById('c_sel_z8').value = 'A';
+        setItem_chiller('z8', true, currentLevelData_chiller.h.z8_a);
+    }
+    calc_chiller();
+}
+
+function calc_chiller() {
+    const acd = db_chiller[document.getElementById('c_buildType').value].acd;
+    const afc = parseFloat(document.getElementById('c_afc').value) || 0;
+    const ac = afc / acd;
+    document.getElementById('c_ac_result').innerText = ac.toFixed(2);
+
+    let sumA = 0;
+    if(document.getElementById('c_chk_y1').checked) sumA += parseFloat(document.getElementById('c_val_y1').value) || 0;
+    if(document.getElementById('c_chk_y2').checked) sumA += parseFloat(document.getElementById('c_val_y2').value) || 0;
+    if(document.getElementById('c_chk_y3').checked) sumA += parseFloat(document.getElementById('c_val_y3').value) || 0;
+    if(document.getElementById('c_chk_y4').checked) {
+        sumA += (parseFloat(document.getElementById('c_val_y4').value) || 0) * ((parseFloat(document.getElementById('c_y4_pct').value) || 0) / 100);
+    }
+    if(document.getElementById('c_chk_y5').checked) sumA += parseFloat(document.getElementById('c_val_y5').value) || 0;
+    if(document.getElementById('c_chk_y6').checked) sumA += parseFloat(document.getElementById('c_val_y6').value) || 0;
+    document.getElementById('c_sumA').innerText = Math.round(sumA).toLocaleString();
+
+    let sumB = 0;['z1','z2','z3','z4','z5','z6','z7','z8','z9'].forEach(z => {
+        if(document.getElementById(`c_chk_${z}`).checked) sumB += parseFloat(document.getElementById(`c_val_${z}`).value) || 0;
+    });
+    document.getElementById('c_sumB').innerText = Math.round(sumB).toLocaleString();
+
+    const C = sumA + sumB;
+    document.getElementById('c_totalC').innerText = Math.round(C).toLocaleString();
+    const D = C * ac;
+    document.getElementById('c_totalD').innerText = Math.round(D).toLocaleString();
+    const TB = D * 1.03;
+    document.getElementById('c_totalTB').innerText = Math.round(TB).toLocaleString();
+    const TTB = TB + (parseFloat(document.getElementById('c_val_tb_prime').value) || 0);
+    document.getElementById('c_totalTTB').innerText = Math.round(TTB).toLocaleString();
+}
+
+// ==================== 共用功能 ====================
+function exportData() {
+    const sys = document.getElementById('mainSystem').value;
+    const pfx = sys === 'chiller' ? 'c_' : '';
+    
+    const data = {
+        mainSystem: sys,
+        buildType: document.getElementById(pfx + 'buildType').value,
+        sysType: document.getElementById(pfx + 'sysType').value,
+        afc: document.getElementById(pfx + 'afc').value,
+        y4_pct: document.getElementById(pfx + 'y4_pct').value,
+        sel_z8: document.getElementById(pfx + 'sel_z8').value,
+        tb_prime: document.getElementById(pfx + 'val_tb_prime').value,
+        items: {}
+    };
+    
+    const itemsList = sys === 'chiller' 
+        ?['y1','y2','y3','y4','y5','y6','z1','z2','z3','z4','z5','z6','z7','z8','z9']
+        :['y1','y2','y3','y4','y5','y6','z1','z2','z3','z4','z5','z6','z8'];
+
+    itemsList.forEach(id => {
+        data.items[id] = {
+            checked: document.getElementById(pfx + `chk_${id}`).checked,
+            val: document.getElementById(pfx + `val_${id}`).value
+        };
+    });
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sys === 'vrf' ? 'VRF' : 'Chiller'}_budget_export.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // 判斷系統類型 (相容舊版無 mainSystem 屬性的檔案)
+            let sys = data.mainSystem;
+            if (!sys) {
+                sys = (data.sysType === 'FCU' || data.sysType === 'AHU') ? 'chiller' : 'vrf';
+            }
+            
+            document.getElementById('mainSystem').value = sys;
+            switchMainSystem(); // 切換 UI
+
+            const pfx = sys === 'chiller' ? 'c_' : '';
+
+            document.getElementById(pfx + 'buildType').value = data.buildType || 'office';
+            document.getElementById(pfx + 'sysType').value = data.sysType || (sys === 'vrf' ? 'air' : 'FCU');
+            
+            if(sys === 'vrf') updateSystem_vrf(); else updateSystem_chiller();
+
+            document.getElementById(pfx + 'afc').value = data.afc || 1000;
+            document.getElementById(pfx + 'y4_pct').value = data.y4_pct || 100;
+            document.getElementById(pfx + 'sel_z8').value = data.sel_z8 || 'C';
+            document.getElementById(pfx + 'val_tb_prime').value = data.tb_prime || 0;
+
+            if (data.items) {
+                for (const [id, item] of Object.entries(data.items)) {
+                    const chk = document.getElementById(pfx + `chk_${id}`);
+                    const val = document.getElementById(pfx + `val_${id}`);
+                    if (chk && val) {
+                        chk.checked = item.checked;
+                        val.value = item.val;
+                    }
+                }
+            }
+            if(sys === 'vrf') calc_vrf(); else calc_chiller();
+        } catch (error) {
+            alert('檔案讀取失敗或格式錯誤！');
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // 重置 input
+}
+
+function togglePreview() {
+    document.body.classList.toggle('preview-mode');
+    const btn = document.getElementById('btn-preview');
+    if (document.body.classList.contains('preview-mode')) {
+        btn.innerText = '取消預覽';
+        btn.classList.replace('btn-dark', 'btn-orange');
+    } else {
+        btn.innerText = '預覽';
+        btn.classList.replace('btn-orange', 'btn-dark');
+    }
+}
+
+// 頁面載入時初始化
+window.onload = switchMainSystem;
+</script>
+
+</body>
+</html>

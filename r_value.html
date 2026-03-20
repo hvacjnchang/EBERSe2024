@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>中央空調系統節能技術節能率計算</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            font-size: 13px;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 1200px;
+            background-color: #fff;
+            margin: auto;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px;
+            text-align: center;
+            vertical-align: middle;
+            height: 25px;
+        }
+        th {
+            background-color: #e6e6e6;
+            font-weight: bold;
+        }
+        .yellow-bg {
+            background-color: #FFFF99 !important;
+        }
+        .orange-bg {
+            background-color: #FFDDDD !important;
+        }
+        .blue-text {
+            color: blue;
+            font-size: 12px;
+        }
+        .red-text {
+            color: red;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 60px;
+            text-align: center;
+            border: 1px solid #ccc;
+            font-family: inherit;
+            background: transparent;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #0066cc;
+            background-color: #fff;
+        }
+        input[type="checkbox"] {
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+        .result-cell {
+            color: red;
+        }
+        
+        /* 系統欄位等寬 */
+        .col-sys {
+            width: 11%;
+        }
+
+        /* 說明文字輸入區的樣式設定 */
+        .desc-cell {
+            text-align: left;
+            vertical-align: middle;
+            background-color: #FFFF99 !important;
+            padding: 5px;
+        }
+        .editable-desc {
+            width: 100%;
+            min-height: 25px;
+            outline: none;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            cursor: text;
+        }
+        .editable-desc:focus {
+            background-color: #fff;
+            border: 1px dashed #0066cc;
+        }
+
+        /* 控制按鈕區 */
+        .control-panel {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 8px 16px;
+            margin: 0 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        .btn:hover { background-color: #45a049; }
+        .btn-blue { background-color: #008CBA; }
+        .btn-blue:hover { background-color: #007bb5; }
+
+        /* --- 列印與頁碼專用樣式 --- */
+        #print-footer {
+            display: none;
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm 15mm 20mm 15mm;
+            /* 針對支援 W3C 標準底布局的環境 (如另存PDF等) */
+            @bottom-center {
+                content: "=" counter(page) "=";
+                font-family: "Microsoft JhengHei", sans-serif;
+                font-size: 12pt;
+            }
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                margin: 0;
+            }
+            /* 針對瀏覽器的一般列印做頁尾模擬防呆處理，已刪除導致多餘 =0= 的 pseudo 元素 */
+            #print-footer {
+                display: block;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                text-align: center;
+                font-size: 12pt;
+                font-family: "Microsoft JhengHei", sans-serif;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 功能按鈕區 -->
+<div class="control-panel no-print">
+    <button class="btn" onclick="exportJSON()">資料匯出</button>
+    <button class="btn" onclick="document.getElementById('file-import').click()">資料匯入</button>
+    <input type="file" id="file-import" accept=".json" style="display: none;" onchange="importJSON(event)">
+    <button class="btn btn-blue" onclick="window.print()">預覽</button>
+    <button class="btn btn-blue" onclick="window.print()">列印</button>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th colspan="9" style="font-size: 16px; padding: 10px; background-color: #fff;">中央空調系統節能技術節能率 αi 與採用率 γi <span style="color:red; font-size:12px; float:right;">(EEWH-2023版)</span></th>
+        </tr>
+        <tr>
+            <th>空調節<br>能技術</th>
+            <th>係數</th>
+            <th>次系統</th>
+            <th class="col-sys">冰水AHU<br>系統-1</th>
+            <th class="col-sys">冰水FCU<br>系統-2</th>
+            <th class="col-sys">直膨VRF<br>系統-3</th>
+            <th>採用率</th>
+            <th>αi*γi</th>
+            <th>備註</th>
+        </tr>
+    </thead>
+    <tbody id="calc-body">
+        <!-- 空氣側變風量系統 α1 (Row 3-5) -->
+        <tr>
+            <td rowspan="3">空氣側<br>變風量<br>系統</td>
+            <td rowspan="3">α1</td>
+            <td rowspan="3" style="text-align: left;">AHU變風量且獨立空間溫度或壓<br>力控制者，FCU、VRF室內機，<br>空間溫度感測自動變風量者</td>
+            <td rowspan="3" style="font-weight: bold;">0.10</td>
+            <td rowspan="3">0.04</td>
+            <td rowspan="3">0.05</td>
+            <td>γ11 = <input type="number" id="H3" class="yellow-bg" step="0.01"></td>
+            <td id="I3" class="result-cell"></td>
+            <td rowspan="3" class="blue-text">以耗電量占比計<br>[VAV/(CAV+VAV)]</td>
+        </tr>
+        <tr>
+            <td>γ12 = <input type="number" id="H4" class="yellow-bg" step="0.01"></td>
+            <td id="I4" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ13 = <input type="number" id="H5" class="yellow-bg" step="0.01"></td>
+            <td id="I5" class="result-cell"></td>
+        </tr>
+
+        <!-- 冰水VWV系統 α2 (Row 6-14) -->
+        <tr>
+            <td rowspan="9">冰水<br>VWV系統</td>
+            <td rowspan="9">α2</td>
+            <td rowspan="3" style="text-align: left;">a.一次定頻 /<br> 二次變頻冰水系統<br> (含二次以上)</td>
+            <td rowspan="3">0.03</td>
+            <td rowspan="3">0.03</td>
+            <td rowspan="3">無</td>
+            <td>γ21a = <input type="number" id="H6" class="yellow-bg" step="0.01"></td>
+            <td id="I6" class="result-cell"></td>
+            <td rowspan="9" class="blue-text">以噸數占比計</td>
+        </tr>
+        <tr>
+            <td>γ22a = <input type="number" id="H7" class="yellow-bg" step="0.01"></td>
+            <td id="I7" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ23a = </td>
+            <td id="I8" class="result-cell">-</td>
+        </tr>
+        <tr>
+            <td rowspan="3" style="text-align: left;">b.一次變頻 /<br> 二次變頻冰水系統<br> (含二次以上)</td>
+            <td rowspan="3">0.04</td>
+            <td rowspan="3">0.04</td>
+            <td rowspan="3">無</td>
+            <td>γ21b = <input type="number" id="H9" class="yellow-bg" step="0.01"></td>
+            <td id="I9" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ22b = <input type="number" id="H10" class="yellow-bg" step="0.01"></td>
+            <td id="I10" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ23b = </td>
+            <td id="I11" class="result-cell">-</td>
+        </tr>
+        <tr>
+            <td rowspan="3" style="text-align: left;">c.一次變頻冰水系統</td>
+            <td rowspan="3" style="font-weight: bold;">0.05</td>
+            <td rowspan="3">0.05</td>
+            <td rowspan="3">無</td>
+            <td>γ21c = <input type="number" id="H12" class="yellow-bg" step="0.01"></td>
+            <td id="I12" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ22c = <input type="number" id="H13" class="yellow-bg" step="0.01"></td>
+            <td id="I13" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ23c = </td>
+            <td id="I14" class="result-cell">-</td>
+        </tr>
+
+        <!-- 全熱交換器系統 α3 (Row 15-20) -->
+        <tr>
+            <td rowspan="6">全熱<br>交換器<br>系統</td>
+            <td rowspan="6">α3</td>
+            <td rowspan="3" style="text-align: left;">a.無外氣旁通自動控制</td>
+            <td rowspan="3">0.02</td>
+            <td rowspan="3">0.04</td>
+            <td rowspan="3">0.04</td>
+            <td>γ31a = <input type="number" id="H15" class="yellow-bg" step="0.01"></td>
+            <td id="I15" class="result-cell"></td>
+            <td rowspan="6" class="blue-text">γ3、γ4：<br>以外氣量占比計算<br>[外氣量/總外氣量]</td>
+        </tr>
+        <tr>
+            <td>γ32a = <input type="number" id="H16" class="yellow-bg" step="0.01"></td>
+            <td id="I16" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ33a = <input type="number" id="H17" class="yellow-bg" step="0.01"></td>
+            <td id="I17" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td rowspan="3" style="text-align: left;">b.有外氣旁通自動控制</td>
+            <td rowspan="3">0.03</td>
+            <td rowspan="3">0.05</td>
+            <td rowspan="3">0.05</td>
+            <td>γ31b = <input type="number" id="H18" class="yellow-bg" step="0.01"></td>
+            <td id="I18" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ32b = <input type="number" id="H19" class="yellow-bg" step="0.01"></td>
+            <td id="I19" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ33b = <input type="number" id="H20" class="yellow-bg" step="0.01"></td>
+            <td id="I20" class="result-cell"></td>
+        </tr>
+
+        <!-- CO2濃度控制外氣系統 α4 (Row 21-23) -->
+        <tr>
+            <td rowspan="3">CO2濃度<br>控制外<br>氣系統</td>
+            <td rowspan="3">α4</td>
+            <td rowspan="3">-</td>
+            <td rowspan="3" style="font-weight: bold;">0.04</td>
+            <td rowspan="3">0.04</td>
+            <td rowspan="3">0.04</td>
+            <td>γ41 = <input type="number" id="H21" class="yellow-bg" step="0.01"></td>
+            <td id="I21" class="result-cell"></td>
+            <td rowspan="3" class="blue-text">γ5：<br>以外氣量占比*4 計算<br>[外氣量/總外氣量* 4]</td>
+        </tr>
+        <tr>
+            <td>γ42 = <input type="number" id="H22" class="yellow-bg" step="0.01"></td>
+            <td id="I22" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ43 = <input type="number" id="H23" class="yellow-bg" step="0.01"></td>
+            <td id="I23" class="result-cell"></td>
+        </tr>
+
+        <!-- 外氣冷房系統 α5 (Row 24-35) -->
+        <tr>
+            <td rowspan="12">外氣冷<br>房系統</td>
+            <td rowspan="12">α5</td>
+            <td rowspan="3">a. 日間空調：<br>FCU(PAH)/VRF外氣處理器</td>
+            <td rowspan="3">無</td>
+            <td colspan="2" class="orange-bg"><input type="checkbox" id="L24"> 北部 0.03</td>
+            <td>γ51a = </td>
+            <td id="I24" class="result-cell">-</td>
+            <td rowspan="12">
+                α3、α4、α5：<br>
+                (1)同時使用任兩項，<br>節能率以90%計算<br>η=0.9。<br>
+                (2)同時使用此三項，<br>節能率以80%計算<br>η=0.8。<br><br>
+                αi*γi*η<br>
+                <span id="eta_display" class="red-text"></span>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2" class="orange-bg"><input type="checkbox" id="L25"> 中部 0.02</td>
+            <td>γ52a = <input type="number" id="H25" class="yellow-bg" step="0.01"></td>
+            <td id="I25" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td colspan="2" class="orange-bg"><input type="checkbox" id="L26"> 南部 0.01</td>
+            <td>γ53a = <input type="number" id="H26" class="yellow-bg" step="0.01"></td>
+            <td id="I26" class="result-cell"></td>
+        </tr>
+        
+        <tr>
+            <td rowspan="3">b. 日間空調：<br>AHU附回風機及排氣控制功能</td>
+            <td class="orange-bg"><input type="checkbox" id="L27"> 北部 0.04</td>
+            <td colspan="2" rowspan="3">無</td>
+            <td>γ51b = <input type="number" id="H27" class="yellow-bg" step="0.01"></td>
+            <td id="I27" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td class="orange-bg" style="font-weight: bold;"><input type="checkbox" id="L28"> 中部 0.03</td>
+            <td>γ52b = </td>
+            <td id="I28" class="result-cell">-</td>
+        </tr>
+        <tr>
+            <td class="orange-bg"><input type="checkbox" id="L29"> 南部 0.02</td>
+            <td>γ53b = </td>
+            <td id="I29" class="result-cell">-</td>
+        </tr>
+
+        <tr>
+            <td rowspan="3">c. 24Hr 空調：<br>FCU(PAH)/VRF外氣處理器</td>
+            <td rowspan="3">無</td>
+            <td colspan="2" class="orange-bg"><input type="checkbox" id="L30"> 北部 0.04</td>
+            <td>γ51c = </td>
+            <td id="I30" class="result-cell">-</td>
+        </tr>
+        <tr>
+            <td colspan="2" class="orange-bg"><input type="checkbox" id="L31"> 中部 0.03</td>
+            <td>γ52c = <input type="number" id="H31" class="yellow-bg" step="0.01"></td>
+            <td id="I31" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td colspan="2" class="orange-bg"><input type="checkbox" id="L32"> 南部 0.02</td>
+            <td>γ53c = <input type="number" id="H32" class="yellow-bg" step="0.01"></td>
+            <td id="I32" class="result-cell"></td>
+        </tr>
+
+        <tr>
+            <td rowspan="3">d. 24Hr 空調：<br>AHU附回風機及排氣控制功能</td>
+            <td class="orange-bg"><input type="checkbox" id="L33"> 北部 0.05</td>
+            <td colspan="2" rowspan="3">無</td>
+            <td>γ51d = <input type="number" id="H33" class="yellow-bg" step="0.01"></td>
+            <td id="I33" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td class="orange-bg"><input type="checkbox" id="L34"> 中部 0.04</td>
+            <td>γ52d = </td>
+            <td id="I34" class="result-cell">-</td>
+        </tr>
+        <tr>
+            <td class="orange-bg"><input type="checkbox" id="L35"> 南部 0.03</td>
+            <td>γ53d = </td>
+            <td id="I35" class="result-cell">-</td>
+        </tr>
+
+        <!-- 冷卻水VWV系統 α6 (Row 36-38) -->
+        <tr>
+            <td rowspan="3">冷卻水<br>VWV系統</td>
+            <td rowspan="3">α6</td>
+            <td rowspan="3">一次變頻冷卻水系統</td>
+            <td colspan="3" rowspan="3">0.01</td>
+            <td>γ61 = <input type="number" id="H36" class="yellow-bg" step="0.01"></td>
+            <td id="I36" class="result-cell"></td>
+            <td rowspan="3" class="blue-text">以噸數占比計</td>
+        </tr>
+        <tr>
+            <td>γ62 = <input type="number" id="H37" class="yellow-bg" step="0.01"></td>
+            <td id="I37" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ63 = <input type="number" id="H38" class="yellow-bg" step="0.01"></td>
+            <td id="I38" class="result-cell"></td>
+        </tr>
+
+        <!-- 冷卻散熱系統 α7 (Row 39-47) -->
+        <tr>
+            <td rowspan="9">冷卻散<br>熱系統</td>
+            <td rowspan="9">α7</td>
+            <td rowspan="3" style="text-align: left;">a. 出水溫度變頻控制</td>
+            <td colspan="3" rowspan="3">0.02</td>
+            <td>γ71a = <input type="number" id="H39" class="yellow-bg" step="0.01"></td>
+            <td id="I39" class="result-cell"></td>
+            <td rowspan="9" class="blue-text">以噸數占比計</td>
+        </tr>
+        <tr>
+            <td>γ72a = <input type="number" id="H40" class="yellow-bg" step="0.01"></td>
+            <td id="I40" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ73a = <input type="number" id="H41" class="yellow-bg" step="0.01"></td>
+            <td id="I41" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td rowspan="3" style="text-align: left;">b. 濕球溫度及水溫變頻控制</td>
+            <td colspan="3" rowspan="3">0.03</td>
+            <td>γ71b = <input type="number" id="H42" class="yellow-bg" step="0.01"></td>
+            <td id="I42" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ72b = <input type="number" id="H43" class="yellow-bg" step="0.01"></td>
+            <td id="I43" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ73b = <input type="number" id="H44" class="yellow-bg" step="0.01"></td>
+            <td id="I44" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td rowspan="3" style="text-align: left;">c. 最佳趨近溫度變頻控制</td>
+            <td colspan="3" rowspan="3">0.04</td>
+            <td>γ71c = <input type="number" id="H45" class="yellow-bg" step="0.01"></td>
+            <td id="I45" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ72c = <input type="number" id="H46" class="yellow-bg" step="0.01"></td>
+            <td id="I46" class="result-cell"></td>
+        </tr>
+        <tr>
+            <td>γ73c = <input type="number" id="H47" class="yellow-bg" step="0.01"></td>
+            <td id="I47" class="result-cell"></td>
+        </tr>
+
+        <!-- BEMS α8 (Row 48-49 mapped) -->
+        <tr>
+            <td rowspan="2">BEMS</td>
+            <td rowspan="2">α8</td>
+            <td rowspan="2">建築能源管理系統</td>
+            <td class="orange-bg"><input type="checkbox" id="L48"> C 級</td>
+            <td class="orange-bg"><input type="checkbox" id="L49"> B 級</td>
+            <td class="orange-bg"><input type="checkbox" id="L50"> A 級</td>
+            <td rowspan="2">γ8 = <input type="number" id="H48" class="yellow-bg" step="0.01"></td>
+            <td rowspan="2" id="I48" class="result-cell"></td>
+            <td rowspan="2"></td>
+        </tr>
+        <tr>
+            <td style="font-weight: bold;">0.03</td>
+            <td>0.06</td>
+            <td>0.10</td>
+        </tr>
+
+        <!-- TAB α9 (Row 50) -->
+        <tr>
+            <td class="red-text">TAB</td>
+            <td>α9</td>
+            <td class="red-text">測試調整平衡</td>
+            <td colspan="3">0.04</td>
+            <td>γ9 = <input type="number" id="H50" class="yellow-bg" step="0.01"></td>
+            <td id="I50" class="result-cell"></td>
+            <td class="red-text">必要施作項目</td>
+        </tr>
+
+        <!-- Cx α10 (Row 51) -->
+        <tr>
+            <td class="red-text">Cx</td>
+            <td>α10</td>
+            <td class="red-text">性能確效</td>
+            <td colspan="3">0.06</td>
+            <td>γ10 = <input type="number" id="H51" class="yellow-bg" step="0.01"></td>
+            <td id="I51" class="result-cell"></td>
+            <td class="red-text">必要施作項目</td>
+        </tr>
+
+        <!-- 空調儲冰系統 α11 (Row 52-53) -->
+        <tr>
+            <td rowspan="2">空調儲<br>冰系統</td>
+            <td rowspan="2">α11</td>
+            <td rowspan="2" class="desc-cell">
+                <div contenteditable="true" id="desc1" class="editable-desc">(說明)</div>
+            </td>
+            <td colspan="3">0.4 * 融冰使用率(%)</td>
+            <td rowspan="2">γ11 = <input type="number" id="H52" class="yellow-bg" step="0.01"></td>
+            <td rowspan="2" id="I52" class="result-cell"></td>
+            <td rowspan="2"></td>
+        </tr>
+        <tr>
+            <td colspan="3">融冰使用率(%) = <input type="number" id="F53" class="yellow-bg" step="1"> %</td>
+        </tr>
+
+        <!-- 自薦節能系統 α12 (Row 54-55) -->
+        <tr>
+            <td rowspan="2">自薦節<br>能系統</td>
+            <td rowspan="2">α12</td>
+            <td rowspan="2" class="desc-cell">
+                <div contenteditable="true" id="desc2" class="editable-desc">(說明)</div>
+            </td>
+            <td colspan="3" rowspan="2">自薦值 = <input type="number" id="D54" class="yellow-bg" step="0.01"></td>
+            <td rowspan="2">γ12 = <input type="number" id="H54" class="yellow-bg" step="0.01"></td>
+            <td rowspan="2" id="I54" class="result-cell"></td>
+            <td rowspan="2"></td>
+        </tr>
+        <tr></tr>
+
+        <!-- Result Footer (Row 57) -->
+        <tr style="background-color: #f2f2f2;">
+            <td colspan="7" style="text-align: right; vertical-align: middle; font-weight: bold; padding-right: 15px;">
+                <span style="margin-right: 30px;">(0≦R≦0.4)</span> R = Σ1~12(αi*γi) = 
+            </td>
+            <td id="R_val" class="red-text" style="font-weight: bold; font-size: 16px;"></td>
+            <td id="R_status" class="red-text" style="font-weight: bold;"></td>
+        </tr>
+    </tbody>
+</table>
+
+<div id="print-footer"></div>
+
+<script>
+    // Constants mapping to table values
+    const D3=0.10, E3=0.04, F3=0.05;
+    const D6=0.03, E6=0.03;
+    const D9=0.04, E9=0.04;
+    const D12=0.05, E12=0.05;
+    const D15=0.02, E15=0.04, F15=0.04;
+    const D18=0.03, E18=0.05, F18=0.05;
+    const D21=0.04, E21=0.04, F21=0.04; 
+    const D36=0.01;
+    const D39=0.02;
+    const D42=0.03;
+    const D45=0.04;
+    const D49=0.03, E49=0.06, F49=0.10; // BEMS
+    const D50=0.04; // TAB
+    const D51=0.06; // Cx
+
+    function getVal(id) {
+        let el = document.getElementById(id);
+        if (!el) return 0;
+        let v = parseFloat(el.value);
+        return isNaN(v) ? 0 : v;
+    }
+
+    function isChecked(id) {
+        let el = document.getElementById(id);
+        return el ? el.checked : false;
+    }
+
+    function setHtml(id, val) {
+        let el = document.getElementById(id);
+        if (el) el.innerHTML = val;
+    }
+
+    function calculate() {
+        // Read H values (採用率 γ)
+        const H3 = getVal('H3'), H4 = getVal('H4'), H5 = getVal('H5');
+        const H6 = getVal('H6'), H7 = getVal('H7');
+        const H9 = getVal('H9'), H10 = getVal('H10');
+        const H12 = getVal('H12'), H13 = getVal('H13');
+        const H15 = getVal('H15'), H16 = getVal('H16'), H17 = getVal('H17');
+        const H18 = getVal('H18'), H19 = getVal('H19'), H20 = getVal('H20');
+        const H21 = getVal('H21'), H22 = getVal('H22'), H23 = getVal('H23');
+        const H25 = getVal('H25'), H26 = getVal('H26');
+        const H27 = getVal('H27');
+        const H31 = getVal('H31'), H32 = getVal('H32');
+        const H33 = getVal('H33');
+        const H36 = getVal('H36'), H37 = getVal('H37'), H38 = getVal('H38');
+        const H39 = getVal('H39'), H40 = getVal('H40'), H41 = getVal('H41');
+        const H42 = getVal('H42'), H43 = getVal('H43'), H44 = getVal('H44');
+        const H45 = getVal('H45'), H46 = getVal('H46'), H47 = getVal('H47');
+        const H48 = getVal('H48');
+        const H50 = getVal('H50');
+        const H51 = getVal('H51');
+        const H52 = getVal('H52');
+        const H54 = getVal('H54');
+
+        // Read L values (Checkboxes)
+        const L24 = isChecked('L24'), L25 = isChecked('L25'), L26 = isChecked('L26'); // α5a
+        const L27 = isChecked('L27'), L28 = isChecked('L28'), L29 = isChecked('L29'); // α5b
+        const L30 = isChecked('L30'), L31 = isChecked('L31'), L32 = isChecked('L32'); // α5c
+        const L33 = isChecked('L33'), L34 = isChecked('L34'), L35 = isChecked('L35'); // α5d
+        const L48 = isChecked('L48'), L49 = isChecked('L49'), L50 = isChecked('L50'); // BEMS
+
+        // Helper calculations for η
+        let M15 = (H15>0 || H16>0 || H17>0 || H18>0 || H19>0 || H20>0) ? 1 : 0;
+        let M21 = (H21>0 || H22>0 || H23>0) ? 1 : 0;
+        let M24 = (L24||L25||L26||L27||L28||L29||L30||L31||L32||L33||L34||L35 || H25>0||H26>0||H27>0||H31>0||H32>0||H33>0) ? 1 : 0;
+        
+        let sumM = M15 + M21 + M24;
+        let eta = 1;
+        if (sumM === 3) eta = 0.8;
+        else if (sumM === 2) eta = 0.9;
+        else if (sumM === 1) eta = 1.0;
+        else if (sumM === 0) eta = 0;
+
+        setHtml('eta_display', sumM >= 2 ? `** 本案η=${eta} **` : "");
+
+        let I = {};
+        let sumI = 0;
+
+        // I3 to I23
+        I[3] = (H3 * D3).toFixed(3);
+        I[4] = (H4 * E3).toFixed(3);
+        I[5] = (H5 * F3).toFixed(3);
+        I[6] = (H6 * D6).toFixed(3);
+        I[7] = (H7 * E6).toFixed(3);
+        I[9] = (H9 * D9).toFixed(3);
+        I[10]= (H10 * E9).toFixed(3);
+        I[12]= (H12 * D12).toFixed(3);
+        I[13]= (H13 * E12).toFixed(3);
+        I[15]= (H15 * D15 * eta).toFixed(3);
+        I[16]= (H16 * E15 * eta).toFixed(3);
+        I[17]= (H17 * F15 * eta).toFixed(3);
+        I[18]= (H18 * D18 * eta).toFixed(3);
+        I[19]= (H19 * E18 * eta).toFixed(3);
+        I[20]= (H20 * F18 * eta).toFixed(3);
+        I[21]= (H21 * D21 * eta).toFixed(3);
+        I[22]= (H22 * E21 * eta).toFixed(3);
+        I[23]= (H23 * F21 * eta).toFixed(3);
+
+        // α5a (I25, I26)
+        let a5a_sum = L24 + L25 + L26;
+        if (a5a_sum >= 2) {
+            I[25] = "區域擇一"; I[26] = "區域擇一";
+        } else {
+            let val = (L24 ? 0.03 : 0) + (L25 ? 0.02 : 0) + (L26 ? 0.01 : 0);
+            I[25] = (val * H25 * eta).toFixed(3);
+            I[26] = (val * H26 * eta).toFixed(3);
+        }
+
+        // α5b (I27)
+        let a5b_sum = L27 + L28 + L29;
+        if (a5b_sum >= 2) {
+            I[27] = "區域擇一";
+        } else {
+            let val = (L27 ? 0.04 : 0) + (L28 ? 0.03 : 0) + (L29 ? 0.02 : 0);
+            I[27] = (val * H27 * eta).toFixed(3);
+        }
+
+        // α5c (I31, I32)
+        let a5c_sum = L30 + L31 + L32;
+        if (a5c_sum >= 2) {
+            I[31] = "區域擇一"; I[32] = "區域擇一";
+        } else {
+            let val = (L30 ? 0.04 : 0) + (L31 ? 0.03 : 0) + (L32 ? 0.02 : 0);
+            I[31] = (val * H31 * eta).toFixed(3);
+            I[32] = (val * H32 * eta).toFixed(3);
+        }
+
+        // α5d (I33)
+        let a5d_sum = L33 + L34 + L35;
+        if (a5d_sum >= 2) {
+            I[33] = "區域擇一";
+        } else {
+            let val = (L33 ? 0.05 : 0) + (L34 ? 0.04 : 0) + (L35 ? 0.03 : 0);
+            I[33] = (val * H33 * eta).toFixed(3);
+        }
+
+        // I36 to I47
+        I[36] = (H36 * D36).toFixed(3);
+        I[37] = (H37 * D36).toFixed(3);
+        I[38] = (H38 * D36).toFixed(3);
+        I[39] = (H39 * D39).toFixed(3);
+        I[40] = (H40 * D39).toFixed(3);
+        I[41] = (H41 * D39).toFixed(3);
+        I[42] = (H42 * D42).toFixed(3);
+        I[43] = (H43 * D42).toFixed(3);
+        I[44] = (H44 * D42).toFixed(3);
+        I[45] = (H45 * D45).toFixed(3);
+        I[46] = (H46 * D45).toFixed(3);
+        I[47] = (H47 * D45).toFixed(3);
+
+        // BEMS (I48)
+        let bems_sum = L48 + L49 + L50;
+        if (bems_sum >= 2) {
+            I[48] = "等級擇一";
+        } else {
+            let val = (L48 ? D49 : 0) + (L49 ? E49 : 0) + (L50 ? F49 : 0);
+            I[48] = (val * H48).toFixed(3);
+        }
+
+        // I50, I51
+        I[50] = (H50 * D50).toFixed(3);
+        I[51] = (H51 * D51).toFixed(3);
+
+        // 空調儲冰 (I52) - 依據需求：因使用率為%，需除以100
+        let F53 = getVal('F53');
+        I[52] = (H52 * (0.4 * F53) / 100).toFixed(3);
+
+        // 自薦節能 (I54)
+        let D54 = getVal('D54');
+        I[54] = (H54 * D54).toFixed(3);
+
+        // Populate results and sum
+        for (let key in I) {
+            if (document.getElementById('I' + key)) {
+                let cellVal = I[key];
+                
+                // If it is numeric (not "區域擇一" or "等級擇一")
+                if (!isNaN(cellVal) && cellVal !== "") {
+                    // Prevent showing "-0.000" or "0.000" when input is empty
+                    if (parseFloat(cellVal) === 0) {
+                        setHtml('I' + key, "");
+                    } else {
+                        setHtml('I' + key, cellVal);
+                        sumI += parseFloat(cellVal);
+                    }
+                } else {
+                    setHtml('I' + key, cellVal);
+                }
+            }
+        }
+
+        // Final R value logic
+        let rawSum = Math.round(sumI * 100) / 100; // ROUND(SUM, 2)
+        let finalR = rawSum;
+        let R_status = "";
+
+        if (rawSum >= 0.4) {
+            finalR = 0.40;
+            R_status = "R≧0.4,令 R=0.4";
+        } else if (rawSum === 0) {
+            finalR = "";
+        }
+
+        setHtml('R_val', finalR !== "" ? finalR.toFixed(2) : "");
+        setHtml('R_status', R_status);
+    }
+
+    // 匯出資料功能
+    function exportJSON() {
+        const data = {
+            inputs: {},
+            checkboxes: {},
+            editableDivs: {}
+        };
+        // 取得所有數字輸入框資料
+        document.querySelectorAll('input[type="number"]').forEach(el => {
+            if (el.id) data.inputs[el.id] = el.value;
+        });
+        // 取得所有勾選框資料
+        document.querySelectorAll('input[type="checkbox"]').forEach(el => {
+            if (el.id) data.checkboxes[el.id] = el.checked;
+        });
+        // 取得說明輸入區塊的資料
+        document.querySelectorAll('.editable-desc').forEach(el => {
+            if (el.id) data.editableDivs[el.id] = el.innerHTML;
+        });
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '中央空調系統節能技術_資料.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // 匯入資料功能
+    function importJSON(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if(data.inputs) {
+                    for(let id in data.inputs) {
+                        let el = document.getElementById(id);
+                        if(el) el.value = data.inputs[id];
+                    }
+                }
+                if(data.checkboxes) {
+                    for(let id in data.checkboxes) {
+                        let el = document.getElementById(id);
+                        if(el) el.checked = data.checkboxes[id];
+                    }
+                }
+                if(data.editableDivs) {
+                    for(let id in data.editableDivs) {
+                        let el = document.getElementById(id);
+                        if(el) el.innerHTML = data.editableDivs[id];
+                    }
+                }
+                calculate();
+                alert('資料匯入成功！');
+            } catch(error) {
+                alert('檔案格式錯誤，無法解析資料！');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // 允許重複匯入同檔名的檔案
+    }
+
+    // Attach event listeners to all inputs and checkboxes
+    document.addEventListener("DOMContentLoaded", () => {
+        let inputs = document.querySelectorAll("input");
+        inputs.forEach(input => {
+            input.addEventListener('input', calculate);
+            input.addEventListener('change', calculate);
+        });
+        calculate(); // Run once on load
+    });
+</script>
+
+</body>
+</html>

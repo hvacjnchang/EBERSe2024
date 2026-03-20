@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>照明節能指標 (EL) 統計表</title>
+    <style>
+        /* 網頁整體樣式 */
+        body { 
+            font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #f4f7f6; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container { 
+            width: 100%; 
+            max-width: 1300px; 
+            background: #fff; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1); 
+            border-radius: 10px; 
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        /* 頂部按鈕列與標題 */
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border-bottom: 3px solid #0078D7;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .header-title-area {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        h2 { margin: 0; color: #333; font-size: 24px; white-space: nowrap; }
+
+        /* 頂端 EL 計算結果顯示框 */
+        .header-el-display {
+            font-size: 15px;
+            font-weight: bold;
+            color: #444;
+            background: #eef7e8;
+            padding: 6px 15px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .header-el-value {
+            color: #d32f2f;
+            font-size: 22px;
+            margin-left: 8px;
+        }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: none;
+        }
+        
+        /* 工具按鈕樣式 (匯入、匯出、預覽、列印) */
+        .btn-tool {
+            background: #fff; 
+            border: 2px solid #0078D7; 
+            color: #0078D7;
+        }
+        .btn-tool:hover { background: #0078D7; color: #fff; }
+
+        /* 照明明細按鈕樣式 */
+        .btn-import { background-color: #17a2b8; color: #fff; border: 2px solid #17a2b8; }
+        .btn-import:hover { background-color: #138496; border-color: #138496; }
+
+        /* 新增按鈕樣式 */
+        .btn-add { background-color: #28a745; color: #fff; border: 2px solid #28a745; }
+        .btn-add:hover { background-color: #218838; border-color: #218838; }
+        
+        /* 刪除按鈕樣式 */
+        .btn-remove { padding: 4px 8px; background-color: #d32f2f; color: white; border: none; border-radius: 3px; font-size: 12px; cursor: pointer;}
+        .btn-remove:hover { background-color: #b71c1c; }
+
+        /* 表格樣式 */
+        .equipment-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+        .equipment-table th, .equipment-table td { border: 1px solid #ccc; padding: 6px; text-align: center; vertical-align: middle; }
+        .equipment-table th { background-color: #f0f8ff; color: #333; white-space: nowrap; font-weight: bold; }
+        
+        /* 儲存格輸入框樣式 */
+        .equipment-table input[type="text"], .equipment-table input[type="number"] {
+            width: 100%; min-width: 50px; padding: 5px; border: 1px solid #ddd; border-radius: 3px; 
+            box-sizing: border-box; font-size: 13px; text-align: center; font-family: inherit;
+        }
+        .equipment-table input:focus { border-color: #0078D7; outline: none; }
+        
+        /* 唯讀/計算結果欄位樣式 */
+        .calc-input { background-color: transparent; border: none !important; font-weight: bold; color: #000; outline: none; pointer-events: none;}
+        
+        /* 底部加總表格列 */
+        .summary-row td { background-color: #fafafa; font-weight: bold; }
+        .val-highlight { font-size: 15px; color: #d32f2f; }
+        .label-right { text-align: right !important; padding-right: 20px !important; }
+        .bg-striped { background: repeating-linear-gradient(45deg, #f0f0f0, #f0f0f0 10px, #e0e0e0 10px, #e0e0e0 20px); }
+
+        /* 彈出視窗樣式 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 2000;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: #fff; padding: 20px; border-radius: 8px;
+            width: 90%; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* 預覽模式與列印模式專用按鈕 */
+        #preview-exit-btn {
+            display: none; position: fixed; top: 20px; right: 20px; z-index: 1000;
+            padding: 10px 20px; font-size: 16px; font-weight: bold;
+            background-color: #d32f2f; color: #fff; border: none; border-radius: 5px; 
+            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* --- 預覽模式樣式 --- */
+        body.preview-mode { background-color: #fff; }
+        body.preview-mode .container { box-shadow: none; padding: 10px 40px; }
+        body.preview-mode .header-actions { border-bottom: 2px solid #000; }
+        body.preview-mode .btn-group { display: none; }
+        body.preview-mode .action-col { display: none; } /* 隱藏操作欄位 */
+        body.preview-mode input { border: none !important; background: transparent !important; pointer-events: none; font-weight: bold; color: #000; }
+        body.preview-mode .equipment-table th { background-color: #e0e0e0; border: 1px solid #333; color: #000; }
+        body.preview-mode .equipment-table td { border: 1px solid #333; }
+        body.preview-mode .bg-striped { background: #e0e0e0 !important; }
+
+        /* --- 列印模式專用樣式 --- */
+        @media print {
+            body { background-color: #fff; margin: 0; padding: 0; }
+            .container { box-shadow: none; border-radius: 0; max-width: 100%; padding: 0; }
+            .btn-group, #preview-exit-btn, .modal-overlay { display: none !important; }
+            .header-actions { border-bottom: 2px solid #000; margin-bottom: 15px; }
+            .action-col { display: none !important; }
+            input { border: none !important; background: transparent !important; pointer-events: none; font-weight: bold; color: #000; }
+            .equipment-table th { background-color: #ddd !important; border: 1px solid #000 !important; color: #000 !important; }
+            .equipment-table td { border: 1px solid #000 !important; }
+            .bg-striped { background: #e0e0e0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .summary-row td { background-color: #f9f9f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header-el-display { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 預覽模式時顯示的退出按鈕 -->
+    <button id="preview-exit-btn" onclick="togglePreview()">❌ 退出預覽報表</button>
+
+    <!-- 匯入 CSV/Excel 彈出視窗 -->
+    <div id="import-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:#0078D7;">匯入照明明細 (CSV / 複製貼上)</h3>
+            <p style="font-size:13px; color:#555; line-height:1.6;">
+                請選擇匯入方式：<br>
+                1. <strong>上傳檔案：</strong>支援 <code>.csv</code> 或 <code>.txt</code>。<br>
+                2. <strong>直接貼上表格：</strong>您可以直接從 Excel 框選資料複製，並在下方文字框貼上。<br>
+                <strong style="color:#0078D7;">預期欄位順序：</strong> 樓層 | 空調區名稱 | 面積 Ai | 燈具型號 | 數量 nij | 功率 Wij | 係數 βi | (合計功率) | LPDi基準 | (LPDi x Ai)
+            </p>
+            <input type="file" id="file-upload" accept=".csv, .txt" onchange="handleCsvFileUpload(event)" style="margin-bottom:10px; font-size:13px; border:1px solid #ddd; padding:5px; width:100%; box-sizing:border-box;">
+            <textarea id="import-textarea" rows="8" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:13px; resize:vertical; box-sizing:border-box;" placeholder="請在此貼上 Excel 複製的資料..."></textarea>
+            <div style="margin-top:15px; display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn" style="background-color:#777; color:#fff;" onclick="closeImportModal()">取消</button>
+                <button type="button" class="btn-add" onclick="processImport()">確認匯入</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 標題與操作按鈕 -->
+        <div class="header-actions">
+            <!-- 標題與 EL 計算顯示區塊 -->
+            <div class="header-title-area">
+                <h2>照明節能指標 EL 檢討</h2>
+                <div class="header-el-display">
+                    EL = (Σnij x wij x βi) / (ΣLPDi x Ai) = <span id="header-calc-el" class="header-el-value">0.00</span>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <!-- 匯入 JSON 的隱藏欄位與按鈕 -->
+                <button class="btn btn-tool" onclick="document.getElementById('import-json-file').click()">📂 匯入</button>
+                <input type="file" id="import-json-file" accept=".json" style="display:none" onchange="importFromJsonFile(event)">
+                
+                <button class="btn btn-tool" onclick="exportData()">💾 匯出</button>
+                <button class="btn btn-tool" onclick="togglePreview()">📄 預覽</button>
+                <button class="btn btn-tool" onclick="window.print()">🖨️ 列印</button>
+                
+                <!-- 恢復的照明明細按鈕 -->
+                <button class="btn btn-import" onclick="openImportModal()">📋 照明明細</button>
+                
+                <button class="btn btn-add" onclick="addRow()">+ 新增照明</button>
+            </div>
+        </div>
+
+        <!-- 照明統計表 -->
+        <div style="overflow-x: auto;">
+            <table class="equipment-table" id="lighting-table">
+                <thead>
+                    <tr>
+                        <th style="width: 6%;">樓層</th>
+                        <th style="width: 14%;">空調區<br>名稱</th>
+                        <th style="width: 8%;">面積<br>Ai (m²)</th>
+                        <th style="width: 16%;">j 類燈具<br>(型號)</th>
+                        <th style="width: 8%;">燈具<br>數量 nij</th>
+                        <th style="width: 8%;">燈具<br>功率 Wij (w)</th>
+                        <th style="width: 6%;">係數<br>βi</th>
+                        <th style="width: 9%;">合計功率<br>nij x wij x βi</th>
+                        <th style="width: 9%;">LPDi 基準<br>(W/m²)</th>
+                        <th style="width: 10%;">LPDi x Ai<br>(w)</th>
+                        <th style="width: 6%;" class="action-col">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Javascript 將在此動態新增列 -->
+                </tbody>
+                <tfoot>
+                    <!-- 對應 E296: 面積加總 -->
+                    <tr class="summary-row">
+                        <td colspan="2" class="label-right">面 積 總 計 ：</td>
+                        <td><input type="text" id="sum-area" class="calc-input" readonly></td>
+                        <td colspan="7"></td>
+                        <td class="action-col"></td>
+                    </tr>
+                    <!-- 對應 J297: 合計功率加總 -->
+                    <tr class="summary-row">
+                        <td colspan="7" class="label-right">總用電功率 Σ nij x wij x βi =</td>
+                        <td><input type="text" id="sum-power" class="calc-input" readonly></td>
+                        <td colspan="2" class="bg-striped"></td>
+                        <td class="action-col"></td>
+                    </tr>
+                    <!-- 對應 L298: LPDi x Ai加總 -->
+                    <tr class="summary-row">
+                        <td colspan="9" class="label-right">總用電功率基準值 Σ LPDi x Ai =</td>
+                        <td><input type="text" id="sum-lpdi" class="calc-input" readonly></td>
+                        <td class="action-col bg-striped"></td>
+                    </tr>
+                    <!-- 對應 I299: 照明節能指標 EL 計算 -->
+                    <tr class="summary-row">
+                        <td colspan="7" class="label-right">照明節能指標 EL = (Σnij x wij x βi) / (ΣLPDi x Ai) =</td>
+                        <td colspan="2" style="text-align: left; padding-left: 20px;">
+                            <span id="calc-el" class="val-highlight" style="font-weight: bold; font-size: 18px;">0.00</span>
+                        </td>
+                        <td></td>
+                        <td class="action-col"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 輔助函式：Excel 的 ROUND(number, 2) 計算，避免浮點數誤差
+        function round2(num) {
+            return Math.round((num + Number.EPSILON) * 100) / 100;
+        }
+
+        // 新增一列照明資料 (appendToEnd 控制是加在最前面還是最後面)
+        function addRow(appendToEnd = false) {
+            const tbody = document.getElementById('table-body');
+            const tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+                <td><input type="text" class="l-floor"></td>
+                <td><input type="text" class="l-zone"></td>
+                <td><input type="number" class="l-area" step="0.1" oninput="calculate()"></td>
+                <td><input type="text" class="l-lamp"></td>
+                <td><input type="number" class="l-qty" step="1" oninput="calculate()"></td>
+                <td><input type="number" class="l-power" step="0.1" oninput="calculate()"></td>
+                <td><input type="number" class="l-factor" value="1" step="0.1" oninput="calculate()"></td>
+                <td><input type="text" class="l-tot-power calc-input" readonly></td>
+                <td><input type="number" class="l-lpdi-std" step="0.1" oninput="calculate()"></td>
+                <td><input type="text" class="l-lpdi-tot calc-input" readonly></td>
+                <td class="action-col"><button type="button" class="btn-remove" onclick="removeRow(this)">刪除</button></td>
+            `;
+            
+            // 手動新增時，加入到第一列；如果是匯入資料，則依序加到最後一列
+            if (appendToEnd || tbody.children.length === 0) {
+                tbody.appendChild(tr);
+            } else {
+                tbody.insertBefore(tr, tbody.firstChild);
+            }
+        }
+
+        // 刪除該列
+        function removeRow(btn) {
+            btn.closest('tr').remove();
+            calculate();
+        }
+
+        // 核心計算邏輯 (對應 Excel 公式邏輯)
+        function calculate() {
+            let sumArea = 0;      // E296 對應
+            let sumTotPower = 0;  // J297 對應
+            let sumLpdiTot = 0;   // L298 對應
+
+            const rows = document.querySelectorAll('#table-body tr');
+
+            rows.forEach(row => {
+                // 取得輸入值
+                const areaStr = row.querySelector('.l-area').value;
+                const qtyStr = row.querySelector('.l-qty').value;
+                const powerStr = row.querySelector('.l-power').value;
+                const factorStr = row.querySelector('.l-factor').value;
+                const lpdiStdStr = row.querySelector('.l-lpdi-std').value;
+
+                const area = parseFloat(areaStr) || 0;
+                const qty = parseFloat(qtyStr) || 0;
+                const power = parseFloat(powerStr) || 0;
+                const factor = parseFloat(factorStr) || 0;
+                const lpdiStd = parseFloat(lpdiStdStr) || 0;
+
+                // 1. 計算 J 欄: 合計功率 = ROUND(nij * wij * βi, 2)
+                let totPower = 0;
+                if (qtyStr !== "" || powerStr !== "") {
+                    totPower = round2(qty * power * factor);
+                    row.querySelector('.l-tot-power').value = totPower > 0 ? totPower.toFixed(2) : (totPower === 0 && qtyStr!=="" ? "0" : "");
+                } else {
+                    row.querySelector('.l-tot-power').value = "";
+                }
+
+                // 2. 計算 L 欄: LPDi x Ai = ROUND(Area * LPDi基準, 2)
+                let lpdiTot = 0;
+                if (areaStr !== "" && lpdiStdStr !== "") {
+                    lpdiTot = round2(area * lpdiStd);
+                    row.querySelector('.l-lpdi-tot').value = lpdiTot.toFixed(1);
+                } else {
+                    row.querySelector('.l-lpdi-tot').value = "";
+                }
+
+                // 累加數值
+                sumArea += area;
+                sumTotPower += totPower;
+                sumLpdiTot += lpdiTot;
+            });
+
+            // 3. 更新底端加總值 (E296, J297, L298)
+            document.getElementById('sum-area').value = sumArea > 0 ? round2(sumArea).toFixed(1) : "";
+            document.getElementById('sum-power').value = sumTotPower > 0 ? round2(sumTotPower).toFixed(1) : "";
+            document.getElementById('sum-lpdi').value = sumLpdiTot > 0 ? round2(sumLpdiTot).toFixed(1) : "";
+
+            // 4. 計算 I299: 照明節能指標 EL = ROUND(J297 / L298, 2) (同時更新頂部與底部的文字)
+            const elSpan = document.getElementById('calc-el');
+            const headerElSpan = document.getElementById('header-calc-el');
+            if (sumLpdiTot > 0) {
+                const elValue = round2(sumTotPower / sumLpdiTot);
+                elSpan.innerText = elValue.toFixed(2);
+                headerElSpan.innerText = elValue.toFixed(2);
+            } else {
+                elSpan.innerText = "0.00";
+                headerElSpan.innerText = "0.00";
+            }
+        }
+
+        // --- 預覽與列印模式切換 ---
+        function togglePreview() {
+            const body = document.body;
+            const isPreview = body.classList.contains('preview-mode');
+            
+            if (isPreview) {
+                body.classList.remove('preview-mode');
+                document.getElementById('preview-exit-btn').style.display = 'none';
+            } else {
+                calculate(); // 確保計算為最新
+                body.classList.add('preview-mode');
+                document.getElementById('preview-exit-btn').style.display = 'block';
+                window.scrollTo(0, 0); 
+            }
+        }
+
+        // --- 匯出功能 (JSON 格式) ---
+        function exportData() {
+            calculate();
+            const rows = document.querySelectorAll('#table-body tr');
+            const data =[];
+            
+            rows.forEach(row => {
+                data.push({
+                    floor: row.querySelector('.l-floor').value,
+                    zone: row.querySelector('.l-zone').value,
+                    area: row.querySelector('.l-area').value,
+                    lamp: row.querySelector('.l-lamp').value,
+                    qty: row.querySelector('.l-qty').value,
+                    power: row.querySelector('.l-power').value,
+                    factor: row.querySelector('.l-factor').value,
+                    lpdiStd: row.querySelector('.l-lpdi-std').value
+                });
+            });
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "Lighting_Data.json");
+            document.body.appendChild(dlAnchorElem);
+            dlAnchorElem.click();
+            dlAnchorElem.remove();
+        }
+
+        // --- 直接匯入 JSON 檔案 ---
+        function importFromJsonFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    document.getElementById('table-body').innerHTML = ''; // 清空現有資料
+                    data.forEach(item => {
+                        addRow(true); // 匯入時依序新增至最底端
+                        const trs = document.querySelectorAll('#table-body tr');
+                        const lastTr = trs[trs.length - 1];
+                        lastTr.querySelector('.l-floor').value = item.floor || "";
+                        lastTr.querySelector('.l-zone').value = item.zone || "";
+                        lastTr.querySelector('.l-area').value = item.area || "";
+                        lastTr.querySelector('.l-lamp').value = item.lamp || "";
+                        lastTr.querySelector('.l-qty').value = item.qty || "";
+                        lastTr.querySelector('.l-power').value = item.power || "";
+                        lastTr.querySelector('.l-factor').value = item.factor || "1";
+                        lastTr.querySelector('.l-lpdi-std').value = item.lpdiStd || "";
+                    });
+                    calculate();
+                    alert(`✅ 成功從 JSON 匯入 ${data.length} 筆照明資料！`);
+                } catch(err) {
+                    alert("❌ JSON 檔案格式錯誤！");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // 清空欄位以便重複選擇同一個檔案
+        }
+
+        // --- 彈出視窗與匯入功能 (供 CSV/貼上使用) ---
+        function openImportModal() {
+            document.getElementById('import-textarea').value = '';
+            document.getElementById('file-upload').value = '';
+            document.getElementById('import-modal').style.display = 'flex';
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').style.display = 'none';
+        }
+
+        function handleCsvFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('import-textarea').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        // 處理 Excel 複製文字 / CSV 格式匯入
+        function processImport() {
+            const text = document.getElementById('import-textarea').value.trim();
+            if (!text) {
+                alert("請貼上資料或上傳檔案！");
+                return;
+            }
+
+            const lines = text.split('\n');
+            let importedCount = 0;
+
+            lines.forEach((line, index) => {
+                if (!line.trim()) return;
+                
+                // 支援 Tab (Excel 複製) 或 逗號 (CSV) 分隔
+                const cols = line.split(/\t|,/);
+                
+                // 忽略標題列 (簡易判斷)
+                if (index === 0 && (cols[0].includes('樓層') || cols[0].includes('Floor'))) return;
+
+                if (cols.length >= 6) { 
+                    addRow(true); // 匯入時依序新增至最底端，保留貼上順序
+                    const trs = document.querySelectorAll('#table-body tr');
+                    const lastTr = trs[trs.length - 1];
+                    
+                    lastTr.querySelector('.l-floor').value = cols[0] ? cols[0].trim() : "";
+                    lastTr.querySelector('.l-zone').value = cols[1] ? cols[1].trim() : "";
+                    lastTr.querySelector('.l-area').value = cols[2] ? parseFloat(cols[2].trim()) || "" : "";
+                    lastTr.querySelector('.l-lamp').value = cols[3] ? cols[3].trim() : "";
+                    lastTr.querySelector('.l-qty').value = cols[4] ? parseFloat(cols[4].trim()) || "" : "";
+                    lastTr.querySelector('.l-power').value = cols[5] ? parseFloat(cols[5].trim()) || "" : "";
+                    lastTr.querySelector('.l-factor').value = cols[6] ? parseFloat(cols[6].trim()) || "1" : "1";
+                    
+                    // 根據 Excel 排版，index 7 是合計功率(系統自動算), index 8 才是 LPDi基準
+                    if (cols.length > 8) {
+                        lastTr.querySelector('.l-lpdi-std').value = cols[8] ? parseFloat(cols[8].trim()) || "" : "";
+                    } else if (cols.length === 8 && !isNaN(parseFloat(cols[7]))) {
+                        // 防呆：如果只有8欄，且最後一欄是數字，假設使用者沒複製到合計公式欄位
+                        lastTr.querySelector('.l-lpdi-std').value = cols[7] ? parseFloat(cols[7].trim()) || "" : "";
+                    }
+
+                    importedCount++;
+                }
+            });
+
+            if (importedCount > 0) {
+                calculate(); 
+                closeImportModal();
+                alert(`✅ 成功匯入 ${importedCount} 筆照明資料！`);
+            } else {
+                alert("❌ 查無有效資料，請確認格式順序！");
+            }
+        }
+
+        // 頁面載入時預設新增一列空欄位供使用者輸入
+        window.onload = function() {
+            addRow();
+        };
+    </script>
+</body>
+</html>
