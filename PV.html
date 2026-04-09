@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BERS 再生能源優惠計分計算機</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+        .input-group input, .input-group select { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; }
+        .source-card { border: 1px solid #e5e7eb; padding: 15px; border-radius: 6px; position: relative; background: #f9fafb; margin-bottom: 10px;}
+        .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; cursor: pointer; font-weight: bold;}
+    </style>
+</head>
+<body class="p-6">
+
+<div class="max-w-6xl mx-auto">
+    <!-- 標題與功能按鈕區 -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-green-700 mb-4 md:mb-0">BERS 再生能源優惠計分計算機</h1>
+        <div class="flex space-x-2">
+            <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(event)">
+            <button onclick="document.getElementById('importFile').click()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 shadow transition">📂 匯入</button>
+            <button onclick="exportData()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 shadow transition">💾 匯出</button>
+            <button onclick="previewReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow transition">📄 預覽</button>
+            <button onclick="printReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow transition">🖨️ 列印</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- 左側：全域參數設定 -->
+        <div class="col-span-1">
+            <div class="card border-t-4 border-blue-500">
+                <h2 class="text-xl font-bold mb-4 text-blue-700">1. 建築基本參數</h2>
+                <div class="input-group">
+                    <label>所在縣市 (決定PV效率)</label>
+                    <select id="city" onchange="calculate()">
+                        <optgroup label="北部區域 (2.5)">
+                            <option value="基隆市">基隆市</option><option value="臺北市">臺北市</option><option value="新北市">新北市</option><option value="桃園市">桃園市</option><option value="宜蘭縣">宜蘭縣</option><option value="連江縣">連江縣(馬祖)</option>
+                        </optgroup>
+                        <optgroup label="竹苗與東部區域 (2.9)">
+                            <option value="新竹市">新竹市</option><option value="新竹縣">新竹縣</option><option value="苗栗縣">苗栗縣</option><option value="花蓮縣">花蓮縣</option><option value="臺東縣">臺東縣</option>
+                        </optgroup>
+                        <optgroup label="中部區域 (3.2)">
+                            <option value="臺中市">臺中市</option><option value="彰化縣">彰化縣</option><option value="南投縣">南投縣</option><option value="雲林縣">雲林縣</option>
+                        </optgroup>
+                        <optgroup label="南部與澎湖 (3.8)">
+                            <option value="嘉義縣">嘉義縣</option><option value="嘉義市">嘉義市</option><option value="臺南市">臺南市</option><option value="高雄市">高雄市</option><option value="屏東縣">屏東縣</option><option value="澎湖縣">澎湖縣</option>
+                        </optgroup>
+                        <optgroup label="金門 (3.5)">
+                            <option value="金門縣">金門縣</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>屋頂水平面積 (m²) - 計算Rs用<br><span style="font-size: 12px; font-weight: normal; color: #6b7280;">屋頂水平面積：應計入申請案內建築物以及所有有頂蓋停車場之屋頂面積</span></label>
+                    <input type="number" id="roofArea" value="500" oninput="calculate()">
+                </div>
+                <div class="input-group">
+                    <label>評估總樓地板面積 AFe (m²)</label>
+                    <input type="number" id="afe" value="5000" oninput="calculate()">
+                </div>
+                <div class="input-group">
+                    <label>原能效指標 EEI</label>
+                    <input type="number" id="oldEEI" value="0.7" step="0.01" oninput="calculate()">
+                </div>
+                <div class="input-group">
+                    <label>原耗電密度指標 EUI* (kWh/m².yr)</label>
+                    <input type="number" id="oldEUI" value="80" oninput="calculate()">
+                </div>
+                <div class="input-group">
+                    <label>電力排碳係數 β1 (預設 2023年: 0.474)</label>
+                    <input type="number" id="beta1" value="0.474" step="0.001" oninput="calculate()">
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間：再生能源設施清單 -->
+        <div class="col-span-1 md:col-span-2">
+            <div class="card border-t-4 border-green-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-green-700">2. 再生能源設施清單 (可複選疊加)</h2>
+                    <div class="flex space-x-2">
+                        <select id="newSourceType" class="border border-gray-300 rounded p-1 text-sm">
+                            <option value="PV">太陽光電 (PV)</option>
+                            <option value="ST">太陽能熱水</option>
+                            <option value="WIND">風力發電</option>
+                            <option value="HYDRO">小水力發電</option>
+                            <option value="BIO">生質能利用</option>
+                            <option value="AFF">基地內造林</option>
+                        </select>
+                        <button onclick="addSource()" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">＋ 新增設施</button>
+                    </div>
+                </div>
+                
+                <div id="sourceContainer" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    <!-- 動態產生的設施卡片會放在這裡 -->
+                </div>
+                
+                <div class="mt-4 p-3 bg-green-50 rounded text-sm text-green-800">
+                    <strong>小計：</strong> 總相當節電量 (GE): <span id="sumGE" class="font-bold text-lg">0</span> kWh/yr ｜ 總相當 PV 面積: <span id="sumArea" class="font-bold text-lg">0</span> m²
+                </div>
+            </div>
+
+            <!-- 下方：計算結果與判定 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="card border-t-4 border-yellow-500 bg-yellow-50">
+                    <h3 class="font-bold text-yellow-700 mb-2">A 法：PV 面積優惠計算法</h3>
+                    <p class="text-sm mb-1 text-gray-600">適用於屋頂面積有限之中高層建築</p>
+                    <hr class="my-2 border-yellow-200">
+                    <div class="text-sm leading-relaxed">
+                        <p>再生能源設置比例 Rs：<span id="resRs" class="font-bold text-yellow-800">0.00</span> (上限1.0)</p>
+                        <p>優惠係數 γ：<span id="resGamma" class="font-bold text-yellow-800">0.00</span></p>
+                        <p class="mt-2 text-gray-500 line-through">原 SCORE_EE：<span id="resOldScoreA">0.00</span></p>
+                        <p class="text-lg font-bold text-red-600 mt-1">修正後 SCORE_EE：<span id="resNewScoreA">0.00</span></p>
+                    </div>
+                </div>
+
+                <div class="card border-t-4 border-purple-500 bg-purple-50">
+                    <h3 class="font-bold text-purple-700 mb-2">B 法：發電量優惠計算法</h3>
+                    <p class="text-sm mb-1 text-gray-600">適用於屋頂裝設大量高效率PV的低層建築</p>
+                    <hr class="my-2 border-purple-200">
+                    <div class="text-sm leading-relaxed">
+                        <p>原 EEI 指標：<span id="resOldEEI" class="font-bold">0.00</span></p>
+                        <p>修正後 EEI* 指標：<span id="resNewEEI" class="font-bold text-purple-800">0.00</span></p>
+                        <p class="mt-2 text-gray-500 line-through">原 SCORE_EE：<span id="resOldScoreB">0.00</span></p>
+                        <p class="text-lg font-bold text-red-600 mt-1">修正後 SCORE_EE：<span id="resNewScoreB">0.00</span></p>
+                        <p class="text-xs text-gray-500 mt-1">(註：B法修正後分數最高不得超過原分數之1.1倍)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-gray-800 text-white text-center">
+                <h2 class="text-2xl font-bold mb-2">最佳優惠選擇：<span id="bestMethod" class="text-yellow-400">---</span></h2>
+                <p class="text-lg">最終確認 SCORE_EE 得分： <span id="finalScore" class="text-3xl text-green-400 font-bold">0.00</span></p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // 台灣各縣市PV效率對照表 [kWh/(kW day)]
+    const pvEffMap = {
+        '基隆市': 2.5, '臺北市': 2.5, '新北市': 2.5, '桃園市': 2.5, '宜蘭縣': 2.5, '連江縣': 2.5,
+        '新竹市': 2.9, '新竹縣': 2.9, '苗栗縣': 2.9, '花蓮縣': 2.9, '臺東縣': 2.9,
+        '臺中市': 3.2, '彰化縣': 3.2, '南投縣': 3.2, '雲林縣': 3.2,
+        '嘉義縣': 3.8, '嘉義市': 3.8, '臺南市': 3.8, '高雄市': 3.8, '屏東縣': 3.8, '澎湖縣': 3.8,
+        '金門縣': 3.5
+    };
+
+    let sourceIdCounter = 0;
+
+    // 依據 EEI 計算 SCORE_EE
+    function calcScoreEE(eei) {
+        if (eei <= 0.8) {
+            return 50 + 40 * (0.8 - eei) / 0.3;
+        } else {
+            return 50 * (2.0 - eei) / 1.2;
+        }
+    }
+
+    // 動態新增設施卡片 (支援匯入參數)
+    function addSource(importedType = null, importedVal = null, importedT = null) {
+        const type = importedType || document.getElementById('newSourceType').value;
+        const container = document.getElementById('sourceContainer');
+        const id = 'src_' + sourceIdCounter++;
+        
+        let html = `<div class="source-card" id="${id}" data-type="${type}">
+            <div class="remove-btn" onclick="removeSource('${id}')">✖</div>`;
+
+        const tSelectHtml = `
+            <div class="input-group mb-0 w-1/3">
+                <label>電力形式 (T)</label>
+                <select class="t-val bg-white" onchange="calculate()">
+                    <option value="1.0">自用型 (1.0)</option>
+                    <option value="0.5">賣電/憑證 (0.5)</option>
+                </select>
+            </div>`;
+
+        switch(type) {
+            case 'PV':
+                html += `<h4 class="font-bold text-blue-800 mb-2">☀️ 太陽光電 (PV)</h4>
+                         <div class="flex space-x-4">
+                             <div class="input-group mb-0 w-1/3">
+                                 <label>設置容量 (kW)</label>
+                                 <input type="number" class="val-input" value="10" step="0.1" oninput="calculate()">
+                             </div>
+                             ${tSelectHtml}
+                         </div>`;
+                break;
+            case 'ST':
+                html += `<h4 class="font-bold text-red-800 mb-2">♨️ 太陽能熱水</h4>
+                         <div class="input-group mb-0 w-1/2">
+                             <label>相當節電量 GE (kWh/yr)</label>
+                             <input type="number" class="val-input" value="5000" step="100" oninput="calculate()">
+                         </div>
+                         <p class="text-xs text-gray-500 mt-1">* 依檢附計算書與性能證明填入</p>`;
+                break;
+            case 'WIND':
+            case 'HYDRO':
+                const title = type === 'WIND' ? '🎐 風力發電' : '💧 小水力發電';
+                html += `<h4 class="font-bold text-teal-800 mb-2">${title}</h4>
+                         <div class="flex space-x-4">
+                             <div class="input-group mb-0 w-1/3">
+                                 <label>全年發電量 (kWh/yr)</label>
+                                 <input type="number" class="val-input" value="5000" step="100" oninput="calculate()">
+                             </div>
+                             ${tSelectHtml}
+                         </div>`;
+                break;
+            case 'BIO':
+                html += `<h4 class="font-bold text-orange-800 mb-2">🔥 生質能利用</h4>
+                         <div class="flex space-x-4">
+                             <div class="input-group mb-0 w-1/3">
+                                 <label>LNG抵碳量 (kgCO₂/yr)</label>
+                                 <input type="number" class="val-input" value="2000" step="100" oninput="calculate()">
+                             </div>
+                             ${tSelectHtml}
+                         </div>`;
+                break;
+            case 'AFF':
+                html += `<h4 class="font-bold text-green-800 mb-2">🌳 基地內造林</h4>
+                         <div class="input-group mb-0 w-1/2">
+                             <label>造林面積 (m²)</label>
+                             <input type="number" class="val-input" value="100" step="10" oninput="calculate()">
+                         </div>
+                         <p class="text-xs text-gray-500 mt-1">* 抵碳量 FC = 面積 × 1.5 kgCO₂/(m².yr)</p>`;
+                break;
+        }
+
+        html += `<div class="mt-2 text-right text-sm text-gray-600 border-t pt-2 border-gray-200">
+                    本項產出 GE: <span class="item-ge font-bold text-black">0</span> kWh/yr | 
+                    相當 PV 面積: <span class="item-area font-bold text-black">0</span> m²
+                 </div>
+        </div>`;
+        
+        container.insertAdjacentHTML('beforeend', html);
+        
+        // 若為匯入，設定數值
+        if (importedVal !== null) {
+            document.querySelector(`#${id} .val-input`).value = importedVal;
+        }
+        if (importedT !== null && document.querySelector(`#${id} .t-val`)) {
+            document.querySelector(`#${id} .t-val`).value = importedT;
+        }
+
+        calculate();
+    }
+
+    function removeSource(id) {
+        document.getElementById(id).remove();
+        calculate();
+    }
+
+    function calculate() {
+        const city = document.getElementById('city').value;
+        const pvEff = pvEffMap[city] || 2.5;
+        const roofArea = parseFloat(document.getElementById('roofArea').value) || 0;
+        const afe = parseFloat(document.getElementById('afe').value) || 0;
+        const oldEEI = parseFloat(document.getElementById('oldEEI').value) || 0;
+        const oldEUI = parseFloat(document.getElementById('oldEUI').value) || 0;
+        const beta1 = parseFloat(document.getElementById('beta1').value) || 0.474;
+
+        let totalGE = 0;
+        let totalArea = 0;
+
+        const items = document.querySelectorAll('.source-card');
+        items.forEach(item => {
+            const type = item.getAttribute('data-type');
+            const valInput = parseFloat(item.querySelector('.val-input').value) || 0;
+            const tNode = item.querySelector('.t-val');
+            const t = tNode ? parseFloat(tNode.value) : 1.0;
+
+            let itemGE = 0;
+            let itemArea = 0;
+            const formulaADenom = pvEff * 0.9 * 365;
+
+            if (type === 'PV') itemGE = t * valInput * pvEff * 0.9 * 365;
+            else if (type === 'ST') itemGE = valInput;
+            else if (type === 'WIND' || type === 'HYDRO') itemGE = valInput * t;
+            else if (type === 'BIO') itemGE = (valInput / beta1) * t;
+            else if (type === 'AFF') itemGE = (valInput * 1.5) / beta1;
+
+            itemArea = 7.0 * itemGE / formulaADenom;
+            totalGE += itemGE;
+            totalArea += itemArea;
+
+            item.querySelector('.item-ge').textContent = itemGE.toFixed(1);
+            item.querySelector('.item-area').textContent = itemArea.toFixed(2);
+        });
+
+        document.getElementById('sumGE').textContent = totalGE.toFixed(1);
+        document.getElementById('sumArea').textContent = totalArea.toFixed(2);
+
+        const oldScore = calcScoreEE(oldEEI);
+        document.getElementById('resOldScoreA').textContent = oldScore.toFixed(2);
+        document.getElementById('resOldScoreB').textContent = oldScore.toFixed(2);
+        document.getElementById('resOldEEI').textContent = oldEEI.toFixed(4);
+
+        // A 法
+        let rs = roofArea > 0 ? (totalArea / roofArea) : 0;
+        if (rs > 1.0) rs = 1.0;
+        let gamma = 0.1 * rs;
+        let scoreA = oldScore * (1 + gamma);
+        
+        document.getElementById('resRs').textContent = rs.toFixed(4);
+        document.getElementById('resGamma').textContent = gamma.toFixed(4);
+        document.getElementById('resNewScoreA').textContent = scoreA.toFixed(2);
+
+        // B 法
+        let newEEI = oldEEI;
+        let scoreB = oldScore;
+        let capScoreB = oldScore * 1.1; 
+
+        if (afe > 0 && oldEUI > 0) {
+            newEEI = oldEEI * ((oldEUI * afe - totalGE) / (afe * oldEUI));
+            if (newEEI < 0) newEEI = 0; 
+            scoreB = calcScoreEE(newEEI);
+            if (scoreB > capScoreB) scoreB = capScoreB;
+        }
+        
+        document.getElementById('resNewEEI').textContent = newEEI.toFixed(4);
+        document.getElementById('resNewScoreB').textContent = scoreB.toFixed(2);
+
+        // 判定
+        const bestMethodSpan = document.getElementById('bestMethod');
+        const finalScoreSpan = document.getElementById('finalScore');
+        
+        if (scoreA > scoreB) {
+            bestMethodSpan.textContent = "A 法 (面積優惠)";
+            finalScoreSpan.textContent = scoreA.toFixed(2);
+        } else if (scoreB > scoreA) {
+            bestMethodSpan.textContent = "B 法 (發電量優惠)";
+            finalScoreSpan.textContent = scoreB.toFixed(2);
+        } else {
+            bestMethodSpan.textContent = "兩法分數相同";
+            finalScoreSpan.textContent = scoreA.toFixed(2);
+        }
+    }
+
+    // ================= 新增功能區 =================
+
+    // 匯出 JSON
+    function exportData() {
+        const data = {
+            city: document.getElementById('city').value,
+            roofArea: document.getElementById('roofArea').value,
+            afe: document.getElementById('afe').value,
+            oldEEI: document.getElementById('oldEEI').value,
+            oldEUI: document.getElementById('oldEUI').value,
+            beta1: document.getElementById('beta1').value,
+            sources: []
+        };
+        document.querySelectorAll('.source-card').forEach(item => {
+            data.sources.push({
+                type: item.getAttribute('data-type'),
+                val: item.querySelector('.val-input').value,
+                t: item.querySelector('.t-val') ? item.querySelector('.t-val').value : "1.0"
+            });
+        });
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'BERS_Calculator_Data.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // 匯入 JSON
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                document.getElementById('city').value = data.city || '臺北市';
+                document.getElementById('roofArea').value = data.roofArea || 500;
+                document.getElementById('afe').value = data.afe || 5000;
+                document.getElementById('oldEEI').value = data.oldEEI || 0.7;
+                document.getElementById('oldEUI').value = data.oldEUI || 80;
+                document.getElementById('beta1').value = data.beta1 || 0.474;
+                
+                document.getElementById('sourceContainer').innerHTML = '';
+                if(data.sources && data.sources.length > 0) {
+                    data.sources.forEach(src => addSource(src.type, src.val, src.t));
+                }
+                calculate();
+            } catch (err) {
+                alert('檔案格式錯誤！');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // 重置 input
+    }
+
+    // 產生報告 HTML
+    function generateReportHTML() {
+        const city = document.getElementById('city').value;
+        const pvEff = pvEffMap[city];
+        const bestMethod = document.getElementById('bestMethod').textContent;
+        const finalScore = document.getElementById('finalScore').textContent;
+        
+        let sourcesHtml = '';
+        document.querySelectorAll('.source-card').forEach(item => {
+            const typeName = item.querySelector('h4').innerText;
+            const ge = item.querySelector('.item-ge').innerText;
+            const area = item.querySelector('.item-area').innerText;
+            sourcesHtml += `<tr><td class="border px-4 py-2">${typeName}</td><td class="border px-4 py-2 text-right">${ge}</td><td class="border px-4 py-2 text-right">${area}</td></tr>`;
+        });
+
+        return `
+        <!DOCTYPE html>
+        <html lang="zh-TW">
+        <head>
+            <meta charset="UTF-8">
+            <title>BERS 再生能源優惠計算報告</title>
+            <script src="https://cdn.tailwindcss.com"><\/script>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                @media print { body { padding: 0; } .no-print { display: none; } }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                th, td { border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; }
+                th { background-color: #f3f4f6; }
+                .section-title { border-bottom: 2px solid #10b981; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; color: #047857; font-weight: bold; font-size: 1.25rem; }
+            </style>
+        </head>
+        <body>
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-green-700">BERS 再生能源優惠計算報告</h1>
+                    <p class="text-gray-500 mt-2">列印時間：${new Date().toLocaleString()}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h2 class="section-title">1. 建築基本參數</h2>
+                        <table>
+                            <tr><th>所在縣市</th><td>${city} (PV效率: ${pvEff})</td></tr>
+                            <tr><th>屋頂水平面積</th><td>${document.getElementById('roofArea').value} m²</td></tr>
+                            <tr><th>總樓地板面積 AFe</th><td>${document.getElementById('afe').value} m²</td></tr>
+                            <tr><th>原能效指標 EEI</th><td>${document.getElementById('oldEEI').value}</td></tr>
+                            <tr><th>原耗電密度 EUI*</th><td>${document.getElementById('oldEUI').value}</td></tr>
+                            <tr><th>電力排碳係數 β1</th><td>${document.getElementById('beta1').value}</td></tr>
+                        </table>
+                    </div>
+                    <div>
+                        <h2 class="section-title">3. 評估結果</h2>
+                        <div class="bg-gray-100 p-4 rounded-lg border border-gray-300">
+                            <p class="text-lg mb-2">最佳優惠選擇：<strong class="text-blue-700">${bestMethod}</strong></p>
+                            <p class="text-2xl">最終 SCORE_EE：<strong class="text-green-600">${finalScore}</strong></p>
+                            <hr class="my-3 border-gray-300">
+                            <p class="text-sm text-gray-600">A法修正後分數：${document.getElementById('resNewScoreA').textContent}</p>
+                            <p class="text-sm text-gray-600">B法修正後分數：${document.getElementById('resNewScoreB').textContent}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="section-title">2. 再生能源設施清單</h2>
+                <table>
+                    <thead>
+                        <tr><th>設施種類</th><th class="text-right">相當節電量 GE (kWh/yr)</th><th class="text-right">相當 PV 面積 (m²)</th></tr>
+                    </thead>
+                    <tbody>
+                        ${sourcesHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-green-50 font-bold">
+                            <td>總計</td>
+                            <td class="text-right">${document.getElementById('sumGE').textContent}</td>
+                            <td class="text-right">${document.getElementById('sumArea').textContent}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="break-inside-avoid">
+                    <h2 class="section-title">附錄：計算公式與參考表</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm mb-6">
+                        <div>
+                            <h3 class="font-bold text-gray-700 mb-2">📌 核心計算公式</h3>
+                            <ul class="list-disc pl-5 space-y-2 text-gray-600">
+                                <li><strong>SCORE_EE (EEI ≤ 0.8)</strong> = 50 + 40 × [(0.8 - EEI) / 0.3]</li>
+                                <li><strong>SCORE_EE (EEI > 0.8)</strong> = 50 × [(2.0 - EEI) / 1.2]</li>
+                                <li><strong>相當PV面積</strong> = 7.0 × GE / (PV效率 × 0.9 × 365)</li>
+                                <li><strong>A法 優惠係數 γ</strong> = 0.1 × Rs <br><span class="text-xs">(Rs = 相當PV面積 / 屋頂水平面積，上限1.0)</span></li>
+                                <li><strong>B法 修正後 EEI*</strong> = EEI × (EUI* × AFe - GE) / (AFe × EUI*)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-700 mb-2">📊 台灣各縣市 PV 效率對照表</h3>
+                            <table class="text-xs">
+                                <tr><th>區域</th><th>縣市</th><th>效率 [kWh/(kW·day)]</th></tr>
+                                <tr><td>北部</td><td>基隆, 台北, 新北, 桃園, 宜蘭, 馬祖</td><td>2.5</td></tr>
+                                <tr><td>竹苗東</td><td>新竹, 苗栗, 花蓮, 台東</td><td>2.9</td></tr>
+                                <tr><td>中部</td><td>台中, 彰化, 南投, 雲林</td><td>3.2</td></tr>
+                                <tr><td>南部/澎湖</td><td>嘉義, 台南, 高雄, 屏東, 澎湖</td><td>3.8</td></tr>
+                                <tr><td>金門</td><td>金門</td><td>3.5</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded border border-gray-200 text-sm">
+                        <h3 class="font-bold text-gray-700 mb-3">⚡ 相當節電量 (GE) 計算公式</h3>
+                        <ul class="list-disc pl-5 space-y-2 text-gray-600 grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                            <li><strong>太陽光電 (PV)：</strong>GE = T × 容量(kW) × PV效率 × 0.9 × 365</li>
+                            <li><strong>太陽能熱水 (ST)：</strong>GE = 依檢附計算書直接填入 (T=1.0)</li>
+                            <li><strong>風力 / 小水力：</strong>GE = 全年發電量(kWh/yr) × T</li>
+                            <li><strong>生質能利用 (BIO)：</strong>GE = (LNG抵碳量 / β1) × T</li>
+                            <li><strong>基地內造林 (AFF)：</strong>GE = (造林面積 × 1.5) / β1 (T=1.0)</li>
+                        </ul>
+                        <p class="mt-3 text-xs text-gray-500 border-t pt-2 border-gray-300">
+                            * 註：<strong>T</strong> 為電力形式參數 (自用型 T=1.0，賣電/憑證 T=0.5)；<strong>β1</strong> 為電力排碳係數。
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-8 no-print">
+                    <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 text-lg shadow">🖨️ 立即列印</button>
+                    <button onclick="window.close()" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600 text-lg shadow ml-4">關閉視窗</button>
+                </div>
+            </div>
+        </body>
+        </html>`;
+    }
+
+    // 預覽報告 (開啟新視窗顯示)
+    function previewReport() {
+        const win = window.open('', '_blank');
+        win.document.write(generateReportHTML());
+        win.document.close();
+    }
+
+    // 列印報告 (開啟新視窗並自動呼叫列印)
+    function printReport() {
+        const win = window.open('', '_blank');
+        win.document.write(generateReportHTML());
+        win.document.close();
+        // 等待資源載入後執行列印
+        win.onload = function() {
+            win.print();
+        };
+    }
+
+    // 初始化時預設加一個太陽光電(PV)
+    window.onload = function() {
+        addSource();
+    };
+
+</script>
+</body>
+</html>
